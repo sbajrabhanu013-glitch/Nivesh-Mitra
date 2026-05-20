@@ -4723,11 +4723,17 @@ def _ui_step_class(done: bool, active: bool) -> str:
 
 
 def v9_workflow_tracker():
+    """Native Streamlit workflow tracker.
+    UI-only change: avoids exposing raw HTML tags while keeping all workflow logic untouched.
+    """
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
     recon = st.session_state.get("recon_df", pd.DataFrame())
     action = st.session_state.get("action_df", pd.DataFrame())
     final_json = bool(st.session_state.get("final_json_bytes", b""))
+
+    final_summary = st.session_state.get("final_json_summary", pd.DataFrame())
+    review_ready = isinstance(final_summary, pd.DataFrame) and not final_summary.empty
 
     steps = [
         ("Client", bool(st.session_state.get("client_gstin")), "GSTIN/period"),
@@ -4736,25 +4742,35 @@ def v9_workflow_tracker():
         ("Validate", (not p.empty or not ims.empty), "quality check"),
         ("Reconcile", not recon.empty, f"{_ui_df_len(recon):,} rows"),
         ("Act", not action.empty, "actions ready"),
-        ("Review", bool(st.session_state.get("final_json_summary", pd.DataFrame()).shape[0] if isinstance(st.session_state.get("final_json_summary"), pd.DataFrame) else False), "sign-off"),
+        ("Review", review_ready, "sign-off"),
         ("JSON", final_json, "download"),
     ]
 
-    first_pending = next((i for i, (_, done, _) in enumerate(steps) if not done), len(steps)-1)
-    html = ["<div class='ui-workflow'>"]
-    for idx, (label, done, note) in enumerate(steps, start=1):
-        cls = _ui_step_class(done, (idx-1) == first_pending)
-        status = "Done" if done else ("Active" if (idx-1) == first_pending else "Pending")
-        html.append(f"""
-            <div class="ui-step {cls}">
-                <div class="ui-step-num">{idx}</div>
-                <div class="ui-step-label">{label}</div>
-                <div class="ui-step-status">{status} • {note}</div>
-            </div>
-        """)
-    html.append("</div>")
-    st.markdown("".join(html), unsafe_allow_html=True)
+    first_pending = next((i for i, (_, done, _) in enumerate(steps) if not done), len(steps) - 1)
 
+    st.markdown("### 🚀 GST IMS Workflow")
+    cols = st.columns(8)
+    for idx, (label, done, note) in enumerate(steps, start=1):
+        is_active = (idx - 1) == first_pending and not done
+        if done:
+            icon = "✅"
+            status = "Done"
+            delta = note
+        elif is_active:
+            icon = "🟠"
+            status = "Active"
+            delta = note
+        else:
+            icon = "⚪"
+            status = "Pending"
+            delta = note
+
+        with cols[idx - 1]:
+            st.metric(
+                label=f"{icon} {idx}. {label}",
+                value=status,
+                delta=delta,
+            )
 
 def hero_dashboard():
     p = st.session_state.get("purchase_df", pd.DataFrame())

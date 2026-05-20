@@ -4075,9 +4075,22 @@ def inject_css():
             --bad:#dc2626;
         }
         .stApp { background: var(--bg) !important; color: var(--text); }
-        header[data-testid="stHeader"] { background: #ffffffcc !important; backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
-        #MainMenu, footer, div[data-testid="stToolbar"] { visibility: hidden !important; height: 0 !important; }
-        .block-container { max-width: 1280px; padding-top: 1.25rem; padding-bottom: 2.5rem; }
+        header[data-testid="stHeader"] {
+            display:none !important;
+            visibility:hidden !important;
+            height:0 !important;
+            min-height:0 !important;
+        }
+        div[data-testid="stDecoration"], #MainMenu, footer, div[data-testid="stToolbar"] {
+            display:none !important;
+            visibility:hidden !important;
+            height:0 !important;
+        }
+        .block-container {
+            max-width: 1280px;
+            padding-top: 0.75rem !important;
+            padding-bottom: 2.5rem;
+        }
 
         /* Sidebar: real SaaS navigation */
         section[data-testid="stSidebar"] { background: var(--nav) !important; border-right: 1px solid #1f2937; }
@@ -4109,7 +4122,11 @@ def inject_css():
         /* Top workspace bar */
         .app-topbar {
             display:flex;align-items:center;justify-content:space-between;gap:16px;
-            margin: 0 0 18px 0;
+            margin: 0 0 14px 0;
+            position:relative;
+            z-index:2;
+            min-height:44px;
+            background:transparent;
         }
         .crumb { display:flex;align-items:center;gap:10px;color:#475569;font-size:14px; }
         .back-dot {font-size:22px;color:#0f172a;line-height:1;}
@@ -4117,7 +4134,7 @@ def inject_css():
             display:inline-flex;align-items:center;border-radius:999px;
             padding:5px 10px;font-size:12px;font-weight:700;background:#e0e7ff;color:#3730a3;
         }
-        .top-actions {display:flex;gap:8px;align-items:center;}
+        .top-actions {display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
         .status-pill {border:1px solid var(--border);background:#fff;border-radius:999px;padding:7px 11px;font-size:12px;color:#475569;font-weight:650;}
 
         .kpi-row {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 16px 0;}
@@ -4186,6 +4203,12 @@ def inject_css():
         .mini-footer {text-align:center;color:#94a3b8;font-size:12px;margin-top:22px;}
         .main-footer {color:#64748b;text-align:center;font-size:12px;margin-top:24px;padding:10px 0;}
         @media(max-width:900px){.login-shell{grid-template-columns:1fr}.login-info{display:none}.kpi-row,.module-grid{grid-template-columns:1fr}.block-container{padding-left:.8rem;padding-right:.8rem}}
+
+        /* Header access hotfix: keep app controls below browser/Streamlit chrome */
+        div[data-testid="stAppViewContainer"] { padding-top: 0 !important; }
+        main .block-container > div:first-child { margin-top: 0 !important; }
+        .app-topbar, .kpi-row, .section-card, .page-strip { overflow: visible !important; }
+        @media(max-width:700px){.app-topbar{align-items:flex-start;flex-direction:column}.top-actions{justify-content:flex-start}.kpi-row{grid-template-columns:1fr}}
     </style>
     """, unsafe_allow_html=True)
 
@@ -4239,12 +4262,20 @@ def top_header():
     p, ims, recon, action = _ui_counts()
     client = st.session_state.get("client_name", "") or "Client not selected"
     period = st.session_state.get("return_period", "") or "Period pending"
-    ims_status = "ims uploaded" if _df_len(ims) else "ims pending"
+    ims_status = "IMS uploaded" if _df_len(ims) else "IMS pending"
     final_ready = "Ready" if bool(st.session_state.get("final_json_bytes", b"")) else "Pending"
     st.markdown(f"""
     <div class='app-topbar'>
-        <div class='crumb'><span class='back-dot'>←</span><span>•</span><span>{period}</span><span class='badge'>{ims_status}</span></div>
-        <div class='top-actions'><span class='status-pill'>{client}</span><span class='status-pill'>Final JSON: {final_ready}</span></div>
+        <div class='crumb'>
+            <span style='font-weight:800;color:#0f172a;'>IMS Recon Pro</span>
+            <span>•</span>
+            <span>{period}</span>
+            <span class='badge'>{ims_status}</span>
+        </div>
+        <div class='top-actions'>
+            <span class='status-pill'>{client}</span>
+            <span class='status-pill'>Final JSON: {final_ready}</span>
+        </div>
     </div>
     <div class='kpi-row'>
         <div class='kpi-card'><div class='kpi-label'>PR Records</div><div class='kpi-value'>{_df_len(p):,}</div></div>

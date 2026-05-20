@@ -4049,13 +4049,27 @@ def main():
 
 
 
+
 # =========================================================
-# UI ONLY OVERRIDE PACK — PREMIUM REPLIT-INSPIRED STREAMLIT SKIN
-# IMPORTANT:
-# This block overrides only visual/rendering helper functions.
-# GST JSON generation, reconciliation formulas, IMS parsing, CN/DN logic,
-# action mapping and export functions above are intentionally untouched.
+# UI ONLY OVERRIDE PACK — ENTERPRISE REPLIT-STYLE SKIN V3
+# Purpose: professional SaaS-like interface only.
+# This block does not alter GST JSON generation, IMS parsing,
+# CN/DN handling, reconciliation formulas, action mapping or exports.
 # =========================================================
+
+import html as _ui_html
+import re as _ui_re
+
+
+def _ui_escape(value) -> str:
+    return _ui_html.escape(str(value if value is not None else ""))
+
+
+def _ui_strip_emoji(value: str) -> str:
+    text = str(value or "")
+    text = _ui_re.sub(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]+", "", text)
+    return _ui_re.sub(r"\s+", " ", text).strip()
+
 
 def _ui_df_len(df) -> int:
     try:
@@ -4076,23 +4090,24 @@ def _ui_sum(df, col: str) -> float:
 def _ui_money(value) -> str:
     try:
         value = float(value or 0)
-        abs_value = abs(value)
         sign = "-" if value < 0 else ""
-        if abs_value >= 10000000:
-            return f"{sign}₹{abs_value/10000000:,.2f} Cr"
-        if abs_value >= 100000:
-            return f"{sign}₹{abs_value/100000:,.2f} L"
-        return f"{sign}₹{abs_value:,.0f}"
+        value = abs(value)
+        if value >= 10000000:
+            return f"{sign}₹{value/10000000:,.2f} Cr"
+        if value >= 100000:
+            return f"{sign}₹{value/100000:,.2f} L"
+        return f"{sign}₹{value:,.0f}"
     except Exception:
         return "₹0"
 
 
 def _ui_action_count(df, action: str) -> int:
     try:
-        if isinstance(df, pd.DataFrame) and not df.empty and "final_user_action" in df.columns:
-            return int((df["final_user_action"].astype(str) == action).sum())
-        if isinstance(df, pd.DataFrame) and not df.empty and "recommended_action" in df.columns:
-            return int((df["recommended_action"].astype(str) == action).sum())
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            if "final_user_action" in df.columns:
+                return int((df["final_user_action"].astype(str) == action).sum())
+            if "recommended_action" in df.columns:
+                return int((df["recommended_action"].astype(str) == action).sum())
     except Exception:
         pass
     return 0
@@ -4107,7 +4122,7 @@ def _ui_recon_count(df, mismatch: str) -> int:
     return 0
 
 
-def _ui_safe_unique(df, col: str) -> int:
+def _ui_unique(df, col: str) -> int:
     try:
         if isinstance(df, pd.DataFrame) and not df.empty and col in df.columns:
             return int(df[col].astype(str).replace("", pd.NA).dropna().nunique())
@@ -4119,865 +4134,378 @@ def _ui_safe_unique(df, col: str) -> int:
 def inject_css():
     st.markdown("""
     <style>
-        :root {
-            --ui-bg:#eaf1fb;
-            --ui-ink:#0b1f3a;
-            --ui-muted:#607086;
-            --ui-navy:#071a3d;
-            --ui-navy2:#0b2d66;
-            --ui-blue:#2563eb;
-            --ui-cyan:#38bdf8;
-            --ui-saffron:#ff9933;
-            --ui-green:#138808;
-            --ui-red:#dc463f;
-            --ui-purple:#6d3bd1;
-            --ui-border:#c8d8ec;
-            --ui-card:#ffffff;
+        :root{
+            --app-bg:#f5f7fb;
+            --side:#0f172a;
+            --side-2:#111827;
+            --ink:#111827;
+            --muted:#667085;
+            --line:#d9e2ef;
+            --card:#ffffff;
+            --blue:#2563eb;
+            --blue-2:#1d4ed8;
+            --green:#138808;
+            --orange:#f59e0b;
+            --red:#dc2626;
+            --shadow:0 1px 2px rgba(16,24,40,.05),0 10px 24px rgba(16,24,40,.08);
+            --soft-shadow:0 1px 2px rgba(16,24,40,.04),0 4px 12px rgba(16,24,40,.06);
         }
 
-        html, body, [class*="css"] {
-            font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+        html,body,[class*="css"],.stApp{
+            font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif !important;
         }
+        .stApp{
+            background:var(--app-bg) !important;
+            color:var(--ink) !important;
+        }
+        header[data-testid="stHeader"]{
+            background:rgba(245,247,251,.92) !important;
+            border-bottom:1px solid rgba(16,24,40,.08) !important;
+            backdrop-filter:blur(14px);
+        }
+        div[data-testid="stToolbar"],#MainMenu,footer{visibility:hidden;height:0;}
+        .block-container{max-width:1240px;padding-top:1rem;padding-bottom:2rem;}
 
-        .stApp {
-            background:
-                radial-gradient(circle at 10% 5%, rgba(255,153,51,.22), transparent 26%),
-                radial-gradient(circle at 88% 8%, rgba(37,99,235,.16), transparent 28%),
-                radial-gradient(circle at 78% 92%, rgba(19,136,8,.13), transparent 28%),
-                linear-gradient(135deg,#edf5ff 0%,#dbeafe 46%,#f7fbff 100%);
-            color: var(--ui-ink);
+        section[data-testid="stSidebar"]{
+            background:var(--side) !important;
+            border-right:1px solid rgba(255,255,255,.08) !important;
         }
+        section[data-testid="stSidebar"] .block-container{padding-top:1rem;}
+        section[data-testid="stSidebar"] *{color:#e5e7eb !important;}
+        section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p{color:#9ca3af !important;}
+        section[data-testid="stSidebar"] .stButton>button{
+            justify-content:flex-start !important;
+            background:transparent !important;
+            color:#dbe4f0 !important;
+            border:0 !important;
+            box-shadow:none !important;
+            border-radius:10px !important;
+            min-height:38px !important;
+            padding:8px 10px !important;
+            font-weight:650 !important;
+        }
+        section[data-testid="stSidebar"] .stButton>button:hover{
+            background:#1f2937 !important;
+            color:#fff !important;
+            transform:none !important;
+        }
+        section[data-testid="stSidebar"] input,section[data-testid="stSidebar"] textarea,
+        section[data-testid="stSidebar"] [data-baseweb="select"] *{color:var(--ink) !important;}
 
-        header[data-testid="stHeader"] {
-            background: rgba(237,245,255,.84) !important;
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(11,45,102,.10);
-        }
+        .rx-topline{display:flex;align-items:center;gap:12px;margin:0 0 18px 0;}
+        .rx-back{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--line);box-shadow:var(--soft-shadow);font-size:18px;color:#344054;}
+        .rx-context{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;color:#475467;font-weight:600;}
+        .rx-dot{width:4px;height:4px;border-radius:50%;background:#98a2b3;}
+        .rx-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:#e0e7ff;color:#3730a3;font-size:12px;font-weight:750;}
+        .rx-chip.green{background:#dcfce7;color:#166534;}.rx-chip.gray{background:#eef2f6;color:#475467;}
+        .rx-kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+        .rx-kpi{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-height:70px;box-shadow:var(--soft-shadow);}
+        .rx-kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:750;color:#667085;}
+        .rx-kpi-value{font-size:24px;line-height:1.1;font-weight:850;color:#101828;margin-top:4px;}
 
-        div[data-testid="stToolbar"], #MainMenu, footer { visibility:hidden; height:0; }
-        .block-container { max-width: 1600px; padding-top: 1rem; padding-bottom: 2.2rem; }
+        .rx-sidebar-brand{display:flex;align-items:center;gap:10px;padding:0 4px 16px 4px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.10);}
+        .rx-sidebar-logo{width:34px;height:34px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;}
+        .rx-sidebar-title{font-size:14px;font-weight:850;color:#fff;line-height:1.1;}
+        .rx-sidebar-sub{font-size:11px;color:#9ca3af;margin-top:2px;}
+        .rx-sidebar-section{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;font-weight:800;margin:16px 0 8px 4px;}
+        .rx-userbox{margin-top:18px;padding:12px;border-top:1px solid rgba(255,255,255,.10);font-size:12px;color:#9ca3af;}
+        .rx-user-name{font-weight:850;color:#fff;font-size:13px;}
 
-        section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg,#071a3d 0%,#0b2d66 55%,#071a3d 100%) !important;
-            border-right: 1px solid rgba(255,255,255,.10);
-        }
-        section[data-testid="stSidebar"] * { color: #eef6ff !important; }
-        section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p {
-            color: #d7e7ff !important;
-        }
+        .rx-tabs{background:#eaedf2;border:1px solid #d7dee9;border-radius:9px;padding:4px;margin:0 0 16px 0;display:flex;gap:4px;flex-wrap:wrap;}
+        .rx-tabs .stButton>button{min-height:34px!important;padding:6px 12px!important;border-radius:7px!important;background:transparent!important;border:1px solid transparent!important;box-shadow:none!important;color:#475467!important;font-size:13px!important;font-weight:650!important;}
+        .rx-tabs .stButton>button:hover{background:#fff!important;border-color:#d0d5dd!important;transform:none!important;}
 
-        .ui-shell {
-            border-radius: 30px;
-            overflow: hidden;
-            background: rgba(255,255,255,.92);
-            border: 1px solid rgba(200,216,236,.98);
-            box-shadow: 0 24px 60px rgba(7,26,61,.14);
-            margin-bottom: 18px;
-        }
-        .ui-topbar {
-            min-height: 38px;
-            background: linear-gradient(90deg,#071a3d,#0b2d66,#071a3d);
-            color:#dceaff;
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:12px;
-            padding: 0 22px;
-            font-size: 12px;
-            letter-spacing:.02em;
-        }
-        .ui-hero {
-            position: relative;
-            padding: 28px 30px;
-            background:
-                radial-gradient(circle at 80% 20%, rgba(255,255,255,.16), transparent 32%),
-                linear-gradient(135deg,#08214f 0%,#0b3677 56%,#123d82 100%);
-            color: white;
-            display:flex;
-            justify-content:space-between;
-            gap:22px;
-            align-items:center;
-            overflow:hidden;
-        }
-        .ui-hero::after {
-            content:"@BAJRABHANU";
-            position:absolute;
-            right:22px;
-            bottom:-8px;
-            font-size:58px;
-            font-weight:950;
-            letter-spacing:.04em;
-            color:rgba(255,255,255,.055);
-        }
-        .ui-brand-wrap { display:flex; align-items:center; gap:18px; position:relative; z-index:2; min-width:0; }
-        .ui-logo-badge {
-            width:76px; height:76px; border-radius:24px;
-            background: linear-gradient(135deg,#ff9933 0%,#ffffff 50%,#138808 100%);
-            display:flex; align-items:center; justify-content:center;
-            color:#0b2d66; font-size:34px; font-weight:950;
-            box-shadow: 0 18px 38px rgba(0,0,0,.22);
-            border: 1px solid rgba(255,255,255,.38);
-        }
-        .ui-title { font-size:38px; font-weight:950; line-height:1.03; letter-spacing:-.03em; }
-        .ui-subtitle { margin-top:8px; font-size:16px; color:#e7f0ff; line-height:1.45; max-width: 820px; }
-        .ui-badges { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-        .ui-badge {
-            display:inline-flex; align-items:center; gap:6px;
-            padding:7px 11px; border-radius:999px;
-            background: rgba(255,255,255,.12);
-            border:1px solid rgba(255,255,255,.18);
-            color:#eef6ff; font-size:12px; font-weight:800;
-        }
-        .ui-flag {
-            width:148px; height:92px; border-radius:18px; position:relative; flex:0 0 auto;
-            background: linear-gradient(to bottom,#ff9933 0 33.33%,#fff 33.33% 66.66%,#138808 66.66% 100%);
-            box-shadow: 0 18px 40px rgba(0,0,0,.24);
-            border:1px solid rgba(255,255,255,.38);
-            animation: uiFloat 4s ease-in-out infinite;
-            z-index:2;
-        }
-        .ui-flag::after {
-            content:"☸"; position:absolute; inset:0;
-            display:flex; align-items:center; justify-content:center;
-            color:#0a3d91; font-size:28px; font-weight:900;
-        }
-        @keyframes uiFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        .rx-page-title{margin:4px 0 16px 0;}
+        .rx-kicker{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#2563eb;margin-bottom:5px;}
+        .rx-heading{font-size:28px;line-height:1.15;letter-spacing:-.03em;font-weight:850;color:#101828;}
+        .rx-subtitle{font-size:14px;color:#667085;margin-top:6px;max-width:900px;line-height:1.45;}
 
-        .ui-meta-grid {
-            display:grid;
-            grid-template-columns: repeat(4, minmax(0,1fr));
-            gap:14px;
-            padding:16px 18px;
-            background:linear-gradient(90deg,#f7fbff,#edf5ff);
+        .main-shell,.panel,.small-card,.metric-card,.v10-management-summary,.v10-json-review,.v9-readiness,.v9-report-card{
+            background:#fff !important;
+            border:1px solid var(--line) !important;
+            border-radius:10px !important;
+            box-shadow:var(--soft-shadow) !important;
         }
-        .ui-meta-card {
-            display:flex; gap:12px; align-items:center;
-            background:#fff;
-            border:1px solid #d3e2f4;
-            border-radius:20px;
-            padding:14px 15px;
-            box-shadow: 0 10px 24px rgba(7,26,61,.07);
-            min-height:74px;
-        }
-        .ui-meta-icon {
-            width:44px; height:44px; border-radius:15px;
-            display:flex; align-items:center; justify-content:center;
-            background:linear-gradient(135deg,#eef6ff,#dbeafe);
-            font-size:21px; flex:0 0 auto;
-        }
-        .ui-meta-label {
-            font-size:11px; font-weight:900; color:var(--ui-muted);
-            text-transform:uppercase; letter-spacing:.055em;
-        }
-        .ui-meta-value {
-            font-size:14px; font-weight:950; color:var(--ui-ink);
-            margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        }
+        .main-shell{overflow:hidden;margin-bottom:16px;}.content-pad{padding:20px;}.panel,.small-card{padding:18px 20px;height:100%;}
+        .section-title{font-size:24px;line-height:1.15;font-weight:850;color:#101828;margin:8px 0 4px;letter-spacing:-.02em;}
+        .section-sub{font-size:14px;color:#667085;line-height:1.45;margin-bottom:16px;}.panel-title{font-size:16px;font-weight:800;color:#101828;}
 
-        .ui-nav-wrap {
-            background: rgba(255,255,255,.88);
-            border:1px solid #c8d8ec;
-            border-radius:24px;
-            padding:12px;
-            box-shadow:0 14px 34px rgba(7,26,61,.10);
-            margin: 0 0 18px 0;
-        }
-        .ui-nav-label {
-            font-size:12px; font-weight:950; color:#0b2d66;
-            text-transform:uppercase; letter-spacing:.07em;
-            margin: 0 0 8px 4px;
-        }
+        .metric-card{padding:14px 16px!important;min-height:86px!important;overflow:hidden;}
+        .metric-card::after,.metric-card::before{display:none!important;}.metric-top{display:block!important;}.metric-icon{display:none!important;}
+        .metric-label{font-size:11px!important;text-transform:uppercase;letter-spacing:.04em;color:#667085!important;font-weight:750!important;}
+        .metric-value{font-size:24px!important;font-weight:850!important;color:#101828!important;margin-top:5px!important;line-height:1.1!important;}
+        .metric-delta{font-size:12px!important;color:#667085!important;font-weight:650!important;margin-top:6px!important;}.metric-delta.red{color:#b42318!important;}
 
-        .main-shell, .panel, .metric-card, .small-card {
-            background: rgba(255,255,255,.96);
-            border: 1px solid rgba(200,216,236,.98);
-            box-shadow: 0 16px 40px rgba(7,26,61,.10);
-        }
-        .main-shell { border-radius: 28px; overflow:hidden; margin-bottom:18px; }
-        .content-pad { padding: 30px; position:relative; }
-        .panel, .small-card {
-            border-radius: 26px;
-            padding: 20px 22px;
-            height:100%;
-            background: linear-gradient(180deg,#ffffff,#f8fbff);
-        }
-        .panel-title {font-size:20px;font-weight:950;color:#102244;margin-bottom:8px;}
-        .section-title {font-size:30px;font-weight:950;color:#0b1f3a;margin:8px 0 4px 0;}
-        .section-sub {font-size:15px;color:#607086;margin-bottom:18px;}
+        .rx-command{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:0 0 16px 0;box-shadow:var(--soft-shadow);}
+        .rx-command-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
+        .rx-command-title{font-size:22px;line-height:1.15;font-weight:850;color:#101828;letter-spacing:-.02em;}
+        .rx-command-sub{font-size:14px;color:#667085;line-height:1.45;margin-top:5px;max-width:800px;}
+        .rx-action-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+        .rx-action-card{border:1px solid #e4e7ec;border-radius:8px;background:#fbfcfe;padding:14px;min-height:104px;}
+        .rx-action-label{font-size:12px;color:#667085;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+        .rx-action-title{font-size:16px;color:#101828;font-weight:800;margin-top:8px;}
+        .rx-action-desc{font-size:13px;color:#667085;line-height:1.4;margin-top:4px;}
 
-        .ui-page-title {
-            border-radius:28px;
-            padding:22px 24px;
-            border:1px solid #c8d8ec;
-            background:
-                radial-gradient(circle at right top, rgba(56,189,248,.14), transparent 26%),
-                linear-gradient(135deg,#ffffff,#f7fbff);
-            box-shadow:0 16px 40px rgba(7,26,61,.10);
-            margin-bottom:16px;
-            position:relative;
-            overflow:hidden;
-        }
-        .ui-page-title::after {
-            content:"";
-            position:absolute; right:-50px; top:-70px;
-            width:190px; height:190px; border-radius:50%;
-            background:rgba(37,99,235,.08);
-        }
-        .ui-page-kicker {
-            color:#ff8a00; font-size:12px; font-weight:950;
-            text-transform:uppercase; letter-spacing:.08em;
-        }
-        .ui-page-heading {
-            font-size:30px; font-weight:950; color:#0b1f3a;
-            line-height:1.12; margin-top:5px;
-        }
-        .ui-page-sub {
-            font-size:15px; color:#607086; margin-top:7px; max-width:900px;
-        }
+        .rx-workflow{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin:0 0 16px;box-shadow:var(--soft-shadow);}
+        .rx-workflow-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;}
+        .rx-workflow-title{font-size:17px;font-weight:850;color:#101828;}.rx-workflow-sub{font-size:13px;color:#667085;margin-top:3px;}
+        .rx-progress{height:7px;width:min(340px,100%);background:#eef2f6;border-radius:999px;overflow:hidden;}.rx-progress>div{height:100%;background:#2563eb;border-radius:999px;}
+        .rx-step-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;}.rx-step{border:1px solid #e4e7ec;border-radius:8px;background:#fbfcfe;padding:10px;min-height:86px;}
+        .rx-step.done{background:#f6fef9;border-color:#abefc6;}.rx-step.active{background:#eff6ff;border-color:#93c5fd;}.rx-step-num{width:24px;height:24px;border-radius:6px;background:#eef2f6;color:#344054;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-bottom:8px;}.rx-step.done .rx-step-num{background:#dcfce7;color:#166534;}.rx-step.active .rx-step-num{background:#dbeafe;color:#1d4ed8;}.rx-step-label{font-size:12px;font-weight:800;color:#101828;line-height:1.2;}.rx-step-status{font-size:11px;color:#667085;margin-top:5px;line-height:1.25;}
 
-        .metric-card {
-            border-radius: 24px;
-            padding:18px;
-            min-height: 122px;
-            position:relative;
-            overflow:hidden;
-            transition: all .18s ease;
-        }
-        .metric-card:hover { transform: translateY(-2px); box-shadow:0 20px 46px rgba(7,26,61,.14); }
-        .metric-card::after {
-            content:""; position:absolute; right:-36px; bottom:-44px;
-            width:116px; height:116px; border-radius:50%;
-            background: rgba(37,99,235,.075);
-        }
-        .metric-top {display:flex;align-items:center;gap:14px;position:relative;z-index:2;}
-        .metric-icon {
-            width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;
-            font-size:25px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
-        }
-        .metric-label {font-size:12px;color:#607086;font-weight:950;text-transform:uppercase;letter-spacing:.055em;}
-        .metric-value {font-size:32px;font-weight:950;color:#0b1f3a;line-height:1.15;margin-top:5px;}
-        .metric-delta {font-size:12px;color:#138808;margin-top:5px;font-weight:900;}
-        .metric-delta.red {color:#dc463f;}
+        .rx-quality-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 16px;}.rx-quality{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:var(--soft-shadow);}.rx-quality-head{display:flex;justify-content:space-between;gap:14px;margin-bottom:14px;}.rx-quality-title{font-size:17px;font-weight:850;color:#101828;}.rx-quality-sub{font-size:13px;color:#667085;margin-top:3px;}.rx-score{width:72px;height:72px;border-radius:10px;background:#f2f4f7;border:1px solid #e4e7ec;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;}.rx-score-num{font-size:20px;font-weight:850;color:#101828;}.rx-score-label{font-size:9px;color:#667085;font-weight:800;letter-spacing:.06em}.rx-score.good{background:#ecfdf3;border-color:#abefc6}.rx-score.warn{background:#fffaeb;border-color:#fedf89}.rx-score.bad{background:#fef3f2;border-color:#fecdca}.rx-mini-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}.rx-mini{background:#fbfcfe;border:1px solid #e4e7ec;border-radius:8px;padding:10px;}.rx-mini-label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#667085;font-weight:750;}.rx-mini-value{font-size:15px;font-weight:850;color:#101828;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
-        .ui-command {
-            border-radius: 30px;
-            padding: 24px;
-            color:white;
-            background:
-                radial-gradient(circle at 90% 20%, rgba(255,255,255,.18), transparent 30%),
-                linear-gradient(135deg,#071a3d,#0b3677);
-            border:1px solid rgba(255,255,255,.16);
-            box-shadow: 0 24px 58px rgba(7,26,61,.20);
-            margin: 14px 0 20px 0;
-            overflow:hidden;
-            position:relative;
-        }
-        .ui-command::after {
-            content:"GST"; position:absolute; right:24px; top:8px;
-            font-size:90px; font-weight:950; color:rgba(255,255,255,.055);
-        }
-        .ui-command-title {font-size:28px;font-weight:950;position:relative;z-index:2;}
-        .ui-command-sub {font-size:14px;color:#d9e8ff;margin:8px 0 18px 0;position:relative;z-index:2;max-width:950px;}
-        .ui-action-grid {
-            display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;position:relative;z-index:2;
-        }
-        .ui-action-card {
-            background:rgba(255,255,255,.105);
-            border:1px solid rgba(255,255,255,.16);
-            border-radius:22px;
-            padding:16px;
-            min-height:126px;
-            backdrop-filter: blur(5px);
-        }
-        .ui-action-icon {font-size:28px;margin-bottom:9px;}
-        .ui-action-title {font-size:16px;font-weight:950;color:#fff;}
-        .ui-action-desc {font-size:12px;color:#d7e7ff;line-height:1.45;margin-top:6px;}
+        .rx-help-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 16px;}.rx-help,.rx-helpbox{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--soft-shadow);}.rx-help-title{font-size:13px;font-weight:800;color:#101828;}.rx-help-text{font-size:12px;color:#667085;line-height:1.45;margin-top:5px;}
 
-        .ui-workflow {
-            display:grid;
-            grid-template-columns: repeat(8, minmax(0,1fr));
-            gap:10px;
-            margin: 12px 0 18px 0;
-        }
-        .ui-step {
-            background:#ffffff;
-            border:1px solid #d6e4f5;
-            border-radius:18px;
-            padding:12px;
-            min-height:92px;
-            box-shadow: 0 10px 22px rgba(7,26,61,.06);
-            position:relative;
-            overflow:hidden;
-        }
-        .ui-step.done { background:linear-gradient(180deg,#ffffff,#effaf1); border-color:#bfe9c9; }
-        .ui-step.active { background:linear-gradient(180deg,#ffffff,#fff5e8); border-color:#ffd9a8; }
-        .ui-step-num {
-            width:30px;height:30px;border-radius:11px;background:#eaf2ff;color:#0b2d66;
-            display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:950;margin-bottom:8px;
-        }
-        .ui-step.done .ui-step-num {background:#e9f9ed;color:#138808;}
-        .ui-step.active .ui-step-num {background:#fff0da;color:#c76f00;}
-        .ui-step-label {font-size:12px;font-weight:950;color:#102244;line-height:1.25;}
-        .ui-step-status {font-size:11px;font-weight:800;color:#607086;margin-top:5px;}
+        .stTabs [data-baseweb="tab-list"]{gap:4px;background:#eaedf2;padding:4px;border-radius:9px;border:1px solid #d7dee9;}.stTabs [data-baseweb="tab"]{border-radius:7px;padding:8px 12px;font-size:13px;font-weight:650;color:#475467;}.stTabs [aria-selected="true"]{background:#fff!important;color:#111827!important;box-shadow:none!important;}
+        div[data-testid="stMetric"]{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;box-shadow:var(--soft-shadow);}div[data-testid="stMetricLabel"]{font-size:11px!important;color:#667085!important;font-weight:750!important;text-transform:uppercase;letter-spacing:.04em;}div[data-testid="stMetricValue"]{font-weight:850!important;color:#101828!important;}
+        div[data-testid="stDataFrame"]{border-radius:10px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--soft-shadow);}
+        .stTextInput input,.stNumberInput input,.stDateInput input,.stTextArea textarea{border-radius:8px!important;border:1px solid #d0d5dd!important;background:#fff!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;}.stSelectbox div[data-baseweb="select"]>div{border-radius:8px!important;border-color:#d0d5dd!important;background:#fff!important;}.stFileUploader{background:#fff;border:1px dashed #c7d3e5;border-radius:10px;padding:8px;}
+        .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{border-radius:8px!important;min-height:38px!important;border:1px solid #d0d5dd!important;background:#fff!important;color:#344054!important;font-weight:700!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important;transition:none!important;}.stButton>button:hover,.stDownloadButton>button:hover,.stFormSubmitButton>button:hover{background:#f9fafb!important;border-color:#98a2b3!important;color:#101828!important;transform:none!important;}.stButton>button[kind="primary"],.stFormSubmitButton>button[kind="primary"]{background:#2563eb!important;color:#fff!important;border-color:#2563eb!important;}.stButton>button[kind="primary"]:hover,.stFormSubmitButton>button[kind="primary"]:hover{background:#1d4ed8!important;color:#fff!important;}
 
-        .v10-command-center, .v9-workflow, .v9-readiness, .v10-json-review {
-            border-radius: 28px !important;
-        }
+        .rx-login-wrap{min-height:calc(100vh - 40px);display:grid;grid-template-columns:minmax(0,1.1fr) 420px;gap:24px;align-items:center;padding:28px;}.rx-login-left{padding:36px 28px;}.rx-login-brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;}.rx-login-logo{width:42px;height:42px;border-radius:10px;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;font-weight:900;}.rx-login-title{font-size:40px;line-height:1.05;letter-spacing:-.04em;font-weight:900;color:#101828;}.rx-login-sub{font-size:16px;color:#667085;line-height:1.55;margin-top:14px;max-width:650px;}.rx-login-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:24px;max-width:720px;}.rx-login-feature{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--soft-shadow);}.rx-login-feature-title{font-size:13px;font-weight:850;color:#101828;}.rx-login-feature-text{font-size:12px;color:#667085;line-height:1.45;margin-top:4px;}.rx-login-panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:var(--shadow);}.rx-login-panel-title{font-size:22px;font-weight:850;color:#101828;}.rx-login-panel-sub{font-size:13px;color:#667085;margin:6px 0 18px;line-height:1.45;}.rx-login-copy{font-size:12px;color:#98a2b3;border-top:1px solid #eaecf0;padding-top:14px;margin-top:16px;}
 
-        div[data-testid="stMetric"] {
-            background: linear-gradient(180deg,#ffffff,#f7fbff);
-            border:1px solid #d6e4f5;
-            border-radius:18px;
-            padding:13px 14px;
-            box-shadow:0 8px 18px rgba(7,26,61,.07);
-        }
-        div[data-testid="stMetricLabel"] {font-weight:900;color:#607086;}
-        div[data-testid="stMetricValue"] {font-weight:950;color:#0b1f3a;}
-
-        div[data-testid="stDataFrame"] {
-            border-radius:20px;
-            overflow:hidden;
-            border:1px solid #cfdff0;
-            box-shadow:0 10px 24px rgba(7,26,61,.07);
-        }
-
-        .stTabs [data-baseweb="tab-list"] {
-            gap:8px;
-            background:#edf4ff;
-            padding:8px;
-            border-radius:20px;
-            border:1px solid #cfdded;
-        }
-        .stTabs [data-baseweb="tab"] {
-            border-radius:15px;
-            padding:10px 16px;
-            font-weight:900;
-        }
-        .stTabs [aria-selected="true"] {
-            background:#ffffff !important;
-            color:#0b2d66 !important;
-            box-shadow:0 8px 16px rgba(7,26,61,.08);
-        }
-
-        .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
-            border-radius:16px !important;
-            border:1px solid #cdddf0 !important;
-            background:#ffffff !important;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
-        }
-        .stSelectbox div[data-baseweb="select"] > div {
-            border-radius:16px !important;
-            border-color:#cdddf0 !important;
-            background:#ffffff !important;
-        }
-
-        .stFileUploader {
-            background: linear-gradient(180deg,#ffffff,#f7fbff);
-            border: 1px dashed #9eb9dc;
-            border-radius: 22px;
-            padding: 12px;
-        }
-
-        .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
-            border-radius:16px !important;
-            min-height:46px !important;
-            border:1px solid #c8d8ec !important;
-            background:linear-gradient(180deg,#ffffff,#f2f7ff) !important;
-            color:#0b2d66 !important;
-            font-weight:950 !important;
-            box-shadow:0 7px 16px rgba(7,26,61,.07) !important;
-            transition: all .16s ease !important;
-        }
-        .stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {
-            transform: translateY(-1px);
-            border-color:#2563eb !important;
-            background:linear-gradient(180deg,#eef6ff,#dbeafe) !important;
-            color:#071a3d !important;
-        }
-        .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
-            background:linear-gradient(135deg,#0b2d66,#2563eb) !important;
-            color:white !important;
-            border-color:rgba(255,255,255,.18) !important;
-        }
-
-        .ui-help {
-            background:#fffdf6;
-            border:1px solid #f3d9a7;
-            border-radius:22px;
-            padding:16px 18px;
-            color:#62420d;
-            box-shadow:0 10px 22px rgba(7,26,61,.06);
-            margin:12px 0 18px 0;
-        }
-        .ui-help-title {font-weight:950;font-size:16px;color:#7a4b00;margin-bottom:6px;}
-        .ui-help-text {font-size:13px;line-height:1.5;}
-
-        .footer-bar {
-            margin-top:22px;
-            border-radius:26px;
-            background:linear-gradient(90deg,#071a3d 0%,#082b61 50%,#071a3d 100%);
-            color:white;
-            padding:18px 22px;
-            box-shadow:0 16px 38px rgba(7,26,61,.16);
-        }
-        .foot-item {display:flex;align-items:center;gap:10px;justify-content:center;}
-        .foot-main {font-weight:950;}
-        .foot-sub {font-size:13px;color:#d4e0ff;}
-
-        .ui-login-bg {
-            min-height: calc(100vh - 34px);
-            border-radius:34px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            padding:24px;
-            position:relative;
-            overflow:hidden;
-            background:
-                radial-gradient(circle at 18% 15%, rgba(255,153,51,.25), transparent 28%),
-                radial-gradient(circle at 82% 84%, rgba(19,136,8,.18), transparent 30%),
-                linear-gradient(135deg,#071a3d,#0b2d66 56%,#071a3d);
-        }
-        .ui-login-bg::before {
-            content:"IMS";
-            position:absolute;
-            left:-30px;
-            bottom:-46px;
-            font-size:190px;
-            font-weight:950;
-            color:rgba(255,255,255,.045);
-        }
-        .ui-login-card {
-            width:min(1040px, 100%);
-            display:grid;
-            grid-template-columns: 1.05fr .88fr;
-            gap:18px;
-            position:relative;
-            z-index:2;
-        }
-        .ui-login-left, .ui-login-panel {
-            border-radius:32px;
-            border:1px solid rgba(255,255,255,.18);
-            box-shadow:0 34px 90px rgba(0,0,0,.28);
-        }
-        .ui-login-left {
-            color:white;
-            padding:34px;
-            min-height:520px;
-            background:
-                radial-gradient(circle at 80% 25%, rgba(255,255,255,.13), transparent 30%),
-                rgba(255,255,255,.08);
-            backdrop-filter: blur(8px);
-        }
-        .ui-login-panel {
-            background:rgba(255,255,255,.96);
-            padding:34px;
-        }
-        .ui-login-logo {
-            width:76px;height:76px;border-radius:24px;
-            background:linear-gradient(135deg,#ff9933 0%,#fff 50%,#138808 100%);
-            color:#0b2d66;display:flex;align-items:center;justify-content:center;
-            font-size:34px;font-weight:950;box-shadow:0 18px 38px rgba(0,0,0,.22);
-            margin-bottom:22px;
-        }
-        .ui-login-title {font-size:42px;font-weight:950;line-height:1.04;letter-spacing:-.035em;}
-        .ui-login-sub {font-size:16px;color:#dceaff;line-height:1.6;margin-top:14px;max-width:520px;}
-        .ui-login-feature-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:26px;}
-        .ui-login-feature {
-            background:rgba(255,255,255,.10);
-            border:1px solid rgba(255,255,255,.14);
-            border-radius:18px;padding:14px;
-        }
-        .ui-login-feature-title {font-weight:950;color:white;font-size:14px;}
-        .ui-login-feature-text {font-size:12px;color:#d7e7ff;margin-top:5px;line-height:1.4;}
-        .ui-login-panel-title {font-size:30px;font-weight:950;color:#071b4a;text-align:center;}
-        .ui-login-panel-sub {font-size:14px;color:#566982;text-align:center;line-height:1.5;margin:8px 0 22px 0;}
-        .ui-login-copy {
-            text-align:center;font-size:12px;color:#6b7d96;margin-top:16px;
-            border-top:1px solid #e3edf8;padding-top:13px;font-weight:800;
-        }
-
-        @media (max-width: 1150px) {
-            .ui-action-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-            .ui-workflow { grid-template-columns:repeat(4,minmax(0,1fr)); }
-            .ui-meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-            .ui-login-card { grid-template-columns:1fr; }
-        }
-        @media (max-width: 760px) {
-            .block-container { padding-left:.75rem; padding-right:.75rem; }
-            .ui-hero { flex-direction:column; align-items:flex-start; }
-            .ui-title { font-size:30px; }
-            .ui-flag { width:126px;height:78px; }
-            .ui-action-grid, .ui-workflow, .ui-meta-grid, .ui-login-feature-grid { grid-template-columns:1fr; }
-            .ui-login-left { min-height:auto; }
-        }
+        .footer-bar{display:none!important;}
+        @media(max-width:1100px){.rx-kpi-grid,.rx-meta,.rp-meta{grid-template-columns:repeat(2,minmax(0,1fr));}.rx-action-grid,.rx-help-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.rx-step-grid{grid-template-columns:repeat(4,minmax(0,1fr));}.rx-login-wrap{grid-template-columns:1fr}.rp-hero{grid-template-columns:1fr}.rx-quality-grid{grid-template-columns:1fr}}
+        @media(max-width:700px){.block-container{padding-left:.75rem;padding-right:.75rem}.rx-kpi-grid,.rx-action-grid,.rx-help-grid,.rx-step-grid,.rx-mini-grid,.rx-login-features{grid-template-columns:1fr}.rx-heading{font-size:24px}.rx-login-title{font-size:32px}}
     </style>
     """, unsafe_allow_html=True)
 
 
 def top_header():
-    client = st.session_state.get("client_name") or "Client not selected"
-    gstin = st.session_state.get("client_gstin") or "GSTIN pending"
-    period = st.session_state.get("return_period") or datetime.today().strftime("%b-%Y")
-    user = st.session_state.get("display_name") or st.session_state.get("username") or "User"
-    role = st.session_state.get("role") or "Role"
-
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
     recon = st.session_state.get("recon_df", pd.DataFrame())
     action = st.session_state.get("action_df", pd.DataFrame())
-
+    client = st.session_state.get("client_name") or "No client selected"
+    period = st.session_state.get("return_period") or "Period not set"
+    status = "ims uploaded" if _ui_df_len(ims) else "ims pending"
+    status_cls = "green" if _ui_df_len(ims) else "gray"
+    final = "Ready" if st.session_state.get("final_json_bytes") else "Not ready"
+    final_cls = "green" if st.session_state.get("final_json_bytes") else "gray"
     st.markdown(f"""
-    <div class="ui-shell">
-        <div class="ui-topbar">
-            <div>🛡️ Secure GST IMS Workspace • Engine {ENGINE_VERSION}</div>
-            <div>{datetime.now().strftime("%d-%b-%Y %I:%M %p")} • {COPYRIGHT_OWNER}</div>
+    <div class="rx-topline">
+        <div class="rx-back">‹</div>
+        <div class="rx-context">
+            <span>{_ui_escape(client)}</span><span class="rx-dot"></span><span>{_ui_escape(period)}</span>
+            <span class="rx-chip {status_cls}">{_ui_escape(status)}</span>
+            <span class="rx-chip {final_cls}">Final JSON: {_ui_escape(final)}</span>
         </div>
-        <div class="ui-hero">
-            <div class="ui-brand-wrap">
-                <div class="ui-logo-badge">☸</div>
-                <div>
-                    <div class="ui-title">{APP_TITLE}</div>
-                    <div class="ui-subtitle">{APP_TAGLINE}<br>Upload → Validate → Reconcile → Explain → Act → Review → Sign-off → Generate GST JSON</div>
-                    <div class="ui-badges">
-                        <span class="ui-badge">🔒 JSON Logic Protected</span>
-                        <span class="ui-badge">🧾 IMS CN/DN Ready</span>
-                        <span class="ui-badge">📊 Action Control</span>
-                        <span class="ui-badge">🇮🇳 India GST Workflow</span>
-                    </div>
-                </div>
-            </div>
-            <div class="ui-flag"></div>
-        </div>
-        <div class="ui-meta-grid">
-            <div class="ui-meta-card"><div class="ui-meta-icon">🏢</div><div><div class="ui-meta-label">Client</div><div class="ui-meta-value">{client}</div></div></div>
-            <div class="ui-meta-card"><div class="ui-meta-icon">🔢</div><div><div class="ui-meta-label">GSTIN</div><div class="ui-meta-value">{gstin}</div></div></div>
-            <div class="ui-meta-card"><div class="ui-meta-icon">📅</div><div><div class="ui-meta-label">Return Period</div><div class="ui-meta-value">{period}</div></div></div>
-            <div class="ui-meta-card"><div class="ui-meta-icon">👤</div><div><div class="ui-meta-label">Logged In</div><div class="ui-meta-value">{user} • {role}</div></div></div>
-        </div>
+    </div>
+    <div class="rx-kpi-grid">
+        <div class="rx-kpi"><div class="rx-kpi-label">PR Records</div><div class="rx-kpi-value">{_ui_df_len(p):,}</div></div>
+        <div class="rx-kpi"><div class="rx-kpi-label">IMS Records</div><div class="rx-kpi-value">{_ui_df_len(ims):,}</div></div>
+        <div class="rx-kpi"><div class="rx-kpi-label">Recon Records</div><div class="rx-kpi-value">{_ui_df_len(recon):,}</div></div>
     </div>
     """, unsafe_allow_html=True)
 
 
 def horizontal_nav():
-    nav_items = [
-        ("Dashboard", "🏠"),
-        ("Client Setup", "🏢"),
-        ("Upload Center", "📤"),
-        ("IMS Data Viewer", "📑"),
-        ("Reconciliation Workspace", "🔄"),
-        ("Action Center", "✅"),
-        ("Risk Center", "⚠️"),
-        ("Vendor Follow-up", "✉️"),
-        ("Reports & Export", "🧾"),
-        ("AI Insight Desk", "🧠"),
-        ("Admin Panel", "⚙️"),
+    pages = [
+        "Dashboard", "Client Setup", "Upload Center", "IMS Data Viewer", "Reconciliation Workspace",
+        "Action Center", "Risk Center", "Vendor Follow-up", "Reports & Export", "AI Insight Desk", "Admin Panel"
     ]
+    with st.sidebar:
+        st.markdown(f"""
+        <div class="rx-sidebar-brand">
+            <div class="rx-sidebar-logo">IR</div>
+            <div><div class="rx-sidebar-title">IMS Recon Pro</div><div class="rx-sidebar-sub">GST Reconciliation</div></div>
+        </div>
+        <div class="rx-sidebar-section">Workspace</div>
+        """, unsafe_allow_html=True)
+        for page in pages:
+            prefix = "● " if st.session_state.get("page") == page else ""
+            if st.button(prefix + page, key="side_" + page, use_container_width=True):
+                st.session_state.page = page
+                st.rerun()
+        st.markdown(f"""
+        <div class="rx-userbox">
+            <div class="rx-user-name">{_ui_escape(st.session_state.get('display_name') or st.session_state.get('username') or 'User')}</div>
+            <div>{_ui_escape(st.session_state.get('role') or '')}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Sign out", use_container_width=True, key="rx_signout"):
+            log_event("Logout", "User logged out")
+            st.session_state.logged_in = False
+            st.session_state.username = ""
+            st.session_state.role = ""
+            st.session_state.display_name = ""
+            st.rerun()
 
-    st.markdown("<div class='ui-nav-wrap'><div class='ui-nav-label'>Workspace Navigation</div>", unsafe_allow_html=True)
-    rows = [nav_items[:6], nav_items[6:]]
-    for row_idx, row in enumerate(rows):
-        cols = st.columns(len(row))
-        for i, (label, icon) in enumerate(row):
-            with cols[i]:
-                active = st.session_state.get("page") == label
-                button_label = f"{icon} {label}" if not active else f"● {icon} {label}"
-                if st.button(button_label, use_container_width=True, key=f"ui_nav_{row_idx}_{i}_{label}"):
-                    st.session_state.page = label
-                    st.rerun()
+    st.markdown("<div class='rx-tabs'>", unsafe_allow_html=True)
+    tab_pages = ["Upload Center", "IMS Data Viewer", "Reconciliation Workspace", "Action Center", "Reports & Export"]
+    cols = st.columns(len(tab_pages))
+    for col, page in zip(cols, tab_pages):
+        with col:
+            label = page.replace(" Workspace", "")
+            if st.button(label, key="top_" + page, use_container_width=True):
+                st.session_state.page = page
+                st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 def page_title(title: str, subtitle: str = ""):
+    title = _ui_strip_emoji(title)
+    subtitle = _ui_strip_emoji(subtitle)
     st.markdown(f"""
-    <div class="ui-page-title">
-        <div class="ui-page-kicker">IMS Recon Pro Workspace</div>
-        <div class="ui-page-heading">{title}</div>
-        <div class="ui-page-sub">{subtitle}</div>
+    <div class="rx-page-title">
+        <div class="rx-kicker">IMS Recon Pro</div>
+        <div class="rx-heading">{_ui_escape(title)}</div>
+        <div class="rx-subtitle">{_ui_escape(subtitle)}</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def metric_card(icon, label, value, delta="", bg="#ffffff", color="#2563eb", red=False):
-    red_class = " red" if red else ""
+def metric_card(icon, label, value, delta="", bg="#ffffff", fg="#2563eb", red=False):
+    cls = " red" if red else ""
     st.markdown(f"""
-    <div class="metric-card" style="background:linear-gradient(135deg,{bg},#ffffff);">
+    <div class="metric-card">
         <div class="metric-top">
-            <div class="metric-icon" style="background:{bg}; color:{color};">{icon}</div>
-            <div>
-                <div class="metric-label">{label}</div>
-                <div class="metric-value">{value}</div>
-                <div class="metric-delta{red_class}">{delta}</div>
-            </div>
+            <div class="metric-label">{_ui_escape(_ui_strip_emoji(label))}</div>
+            <div class="metric-value">{_ui_escape(value)}</div>
+            <div class="metric-delta{cls}">{_ui_escape(_ui_strip_emoji(delta))}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-
-def _ui_step_class(done: bool, active: bool) -> str:
-    if done:
-        return "done"
-    if active:
-        return "active"
-    return ""
 
 
 def v9_workflow_tracker():
-    """Native Streamlit workflow tracker.
-    UI-only change: avoids exposing raw HTML tags while keeping all workflow logic untouched.
-    """
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
     recon = st.session_state.get("recon_df", pd.DataFrame())
     action = st.session_state.get("action_df", pd.DataFrame())
-    final_json = bool(st.session_state.get("final_json_bytes", b""))
-
-    final_summary = st.session_state.get("final_json_summary", pd.DataFrame())
-    review_ready = isinstance(final_summary, pd.DataFrame) and not final_summary.empty
-
+    final_ready = bool(st.session_state.get("final_json_bytes"))
     steps = [
-        ("Client", bool(st.session_state.get("client_gstin")), "GSTIN/period"),
-        ("Upload PR", not p.empty, f"{_ui_df_len(p):,} rows"),
-        ("Upload IMS", not ims.empty, f"{_ui_df_len(ims):,} rows"),
-        ("Validate", (not p.empty or not ims.empty), "quality check"),
-        ("Reconcile", not recon.empty, f"{_ui_df_len(recon):,} rows"),
-        ("Act", not action.empty, "actions ready"),
-        ("Review", review_ready, "sign-off"),
-        ("JSON", final_json, "download"),
+        ("Client", bool(st.session_state.get("client_gstin")), st.session_state.get("client_name") or "Not set"),
+        ("Upload PR", _ui_df_len(p) > 0, f"{_ui_df_len(p):,} rows"),
+        ("Upload IMS", _ui_df_len(ims) > 0, f"{_ui_df_len(ims):,} rows"),
+        ("Validate", _ui_df_len(p) > 0 and _ui_df_len(ims) > 0, "quality check"),
+        ("Reconcile", _ui_df_len(recon) > 0, f"{_ui_df_len(recon):,} rows"),
+        ("Act", _ui_df_len(action) > 0, f"{_ui_df_len(action):,} actions"),
+        ("Review", _ui_df_len(action) > 0, "sign-off"),
+        ("JSON", final_ready, "download ready" if final_ready else "pending"),
     ]
-
-    first_pending = next((i for i, (_, done, _) in enumerate(steps) if not done), len(steps) - 1)
-
-    st.markdown("### 🚀 GST IMS Workflow")
-    cols = st.columns(8)
-    for idx, (label, done, note) in enumerate(steps, start=1):
-        is_active = (idx - 1) == first_pending and not done
-        if done:
-            icon = "✅"
-            status = "Done"
-            delta = note
-        elif is_active:
-            icon = "🟠"
-            status = "Active"
-            delta = note
-        else:
-            icon = "⚪"
-            status = "Pending"
-            delta = note
-
-        with cols[idx - 1]:
-            st.metric(
-                label=f"{icon} {idx}. {label}",
-                value=status,
-                delta=delta,
-            )
-
-def hero_dashboard():
-    p = st.session_state.get("purchase_df", pd.DataFrame())
-    ims = st.session_state.get("ims_df", pd.DataFrame())
-    recon = st.session_state.get("recon_df", pd.DataFrame())
-    matched = _ui_recon_count(recon, "Matched")
-    total = _ui_df_len(recon)
-    health = round((matched / max(total, 1)) * 100, 1) if total else 0
-    total_itc = _ui_sum(ims, "total_tax")
-
-    st.markdown(f"""
-    <div class="main-shell">
-        <div class="content-pad">
-            <div class="headline">GST IMS COMMAND DASHBOARD</div>
-            <div class="main-title">Your complete IMS reconciliation control room is ready.</div>
-            <div class="subcopy">
-                Monitor uploads, reconciliation health, mismatch buckets, action readiness and final GST JSON safety from one premium workspace.
-            </div>
+    done_count = sum(1 for _, done, _ in steps if done)
+    active_index = min(done_count, len(steps)-1)
+    cards = []
+    for i, (label, done, note) in enumerate(steps, start=1):
+        cls = "done" if done else ("active" if i-1 == active_index else "")
+        status = "Done" if done else "Pending"
+        cards.append(f"""
+        <div class="rx-step {cls}">
+            <div class="rx-step-num">{i}</div>
+            <div class="rx-step-label">{_ui_escape(label)}</div>
+            <div class="rx-step-status">{status} · {_ui_escape(_ui_strip_emoji(note))}</div>
         </div>
+        """)
+    progress = int((done_count / len(steps)) * 100)
+    st.markdown(f"""
+    <div class="rx-workflow">
+        <div class="rx-workflow-head">
+            <div><div class="rx-workflow-title">Workflow Status</div><div class="rx-workflow-sub">Upload → Validate → Reconcile → Act → Review → Generate JSON</div></div>
+            <div class="rx-progress"><div style="width:{progress}%"></div></div>
+        </div>
+        <div class="rx-step-grid">{''.join(cards)}</div>
     </div>
     """, unsafe_allow_html=True)
-
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        metric_card("📚", "Purchase Rows", f"{_ui_df_len(p):,}", "books register", "#fff3e8", "#ff8a00")
-    with c2:
-        metric_card("🧬", "IMS Rows", f"{_ui_df_len(ims):,}", "GST portal data", "#e9f9ed", "#138808")
-    with c3:
-        metric_card("🧾", "IMS ITC Value", _ui_money(total_itc), "tax summary", "#edf4ff", "#2563eb")
-    with c4:
-        metric_card("🛡️", "Compliance Health", f"{health}%", "matched ratio", "#f2ecff", "#6d3bd1")
-
-    v9_workflow_tracker()
 
 
 def v10_command_center():
-    p = st.session_state.get("purchase_df", pd.DataFrame())
-    ims = st.session_state.get("ims_df", pd.DataFrame())
     recon = st.session_state.get("recon_df", pd.DataFrame())
     action = st.session_state.get("action_df", pd.DataFrame())
-    accepted = _ui_action_count(action, "Accepted")
+    matched = _ui_recon_count(recon, "Matched")
     pending = _ui_action_count(action, "Pending")
-    highrisk = 0
-    try:
-        if isinstance(recon, pd.DataFrame) and not recon.empty and "risk_level" in recon.columns:
-            highrisk = int(recon["risk_level"].isin(["High", "Critical"]).sum())
-    except Exception:
-        highrisk = 0
-
     st.markdown(f"""
-    <div class="ui-command">
-        <div class="ui-command-title">⚡ GST IMS Command Center</div>
-        <div class="ui-command-sub">
-            A Replit-inspired, premium Streamlit control room built on your existing Python engine.
-            Your reconciliation formula and GST JSON generation logic are not changed.
+    <div class="rx-command">
+        <div class="rx-command-head">
+            <div><div class="rx-command-title">Compliance Command Center</div>
+            <div class="rx-command-sub">A clean operational view for IMS reconciliation. The screen design is changed; your formulas and GST JSON engine remain untouched.</div></div>
         </div>
-        <div class="ui-action-grid">
-            <div class="ui-action-card"><div class="ui-action-icon">📤</div><div class="ui-action-title">Upload & Validate</div><div class="ui-action-desc">Purchase rows: {_ui_df_len(p):,}<br>IMS rows: {_ui_df_len(ims):,}</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">🔄</div><div class="ui-action-title">Reconciliation</div><div class="ui-action-desc">Reco rows: {_ui_df_len(recon):,}<br>Matched: {_ui_recon_count(recon, "Matched"):,}</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">✅</div><div class="ui-action-title">IMS Actions</div><div class="ui-action-desc">Accepted: {accepted:,}<br>Pending: {pending:,}</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">⚠️</div><div class="ui-action-title">Risk Review</div><div class="ui-action-desc">High/Critical rows: {highrisk:,}<br>Review before JSON</div></div>
+        <div class="rx-action-grid">
+            <div class="rx-action-card"><div class="rx-action-label">Step 1</div><div class="rx-action-title">Upload</div><div class="rx-action-desc">Load Purchase Register and IMS JSON.</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Step 2</div><div class="rx-action-title">Validate</div><div class="rx-action-desc">Check data quality before reconciliation.</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Matched</div><div class="rx-action-title">{matched:,}</div><div class="rx-action-desc">Matched records after reconciliation.</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Pending</div><div class="rx-action-title">{pending:,}</div><div class="rx-action-desc">Records pending for action review.</div></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        if st.button("🏢 Client Setup", use_container_width=True, key="ui_cmd_client"):
-            st.session_state.page = "Client Setup"; st.rerun()
-    with c2:
-        if st.button("📤 Upload Data", use_container_width=True, key="ui_cmd_upload"):
-            st.session_state.page = "Upload Center"; st.rerun()
-    with c3:
-        if st.button("🔄 Run Reco", use_container_width=True, key="ui_cmd_reco"):
-            st.session_state.page = "Reconciliation Workspace"; st.rerun()
-    with c4:
-        if st.button("🧾 Final JSON", use_container_width=True, key="ui_cmd_json"):
-            st.session_state.page = "Reports & Export"; st.rerun()
 
 
 def v10_help_tooltips():
     st.markdown("""
-    <div class="ui-help">
-        <div class="ui-help-title">🛡️ Safe UI Upgrade Notice</div>
-        <div class="ui-help-text">
-            This screen uses the upgraded UI layer only. Your IMS parsing, CN/DN handling, reconciliation conditions, action mapping and GST JSON generation remain controlled by the existing backend functions.
-        </div>
+    <div class="rx-help-grid">
+        <div class="rx-help"><div class="rx-help-title">Upload</div><div class="rx-help-text">Load Purchase Register and IMS source file.</div></div>
+        <div class="rx-help"><div class="rx-help-title">Validate</div><div class="rx-help-text">Review records, values and tax totals.</div></div>
+        <div class="rx-help"><div class="rx-help-title">Action</div><div class="rx-help-text">Accept, reject or keep invoices pending.</div></div>
+        <div class="rx-help"><div class="rx-help-title">JSON</div><div class="rx-help-text">Generate GST upload JSON from your protected backend.</div></div>
     </div>
     """, unsafe_allow_html=True)
 
 
 def v9_help_box(title, text):
     st.markdown(f"""
-    <div class="ui-help">
-        <div class="ui-help-title">{title}</div>
-        <div class="ui-help-text">{text}</div>
+    <div class="rx-helpbox">
+        <div class="rx-help-title">{_ui_escape(_ui_strip_emoji(title))}</div>
+        <div class="rx-help-text">{_ui_escape(_ui_strip_emoji(text))}</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def v9_saleable_kpis():
-    p = st.session_state.get("purchase_df", pd.DataFrame())
-    ims = st.session_state.get("ims_df", pd.DataFrame())
-    recon = st.session_state.get("recon_df", pd.DataFrame())
-    action = st.session_state.get("action_df", pd.DataFrame())
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        metric_card("💰", "Purchase Tax", _ui_money(_ui_sum(p, "total_tax")), "from books", "#fff3e8", "#ff8a00")
-    with c2:
-        metric_card("📥", "IMS Tax", _ui_money(_ui_sum(ims, "total_tax")), "GST portal", "#e9f9ed", "#138808")
-    with c3:
-        metric_card("🧩", "Mismatch Rows", f"{max(_ui_df_len(recon) - _ui_recon_count(recon, 'Matched'), 0):,}", "needs review", "#fff0ed", "#dc463f", True)
-    with c4:
-        metric_card("✅", "Accepted Actions", f"{_ui_action_count(action, 'Accepted'):,}", "JSON A", "#edf4ff", "#2563eb")
-
-
-def v9_home_modules():
-    st.markdown("""
-    <div class="v9-module-grid">
-        <div class="v9-module-card"><div class="v9-module-icon">🏢</div><div class="v9-module-title">Client Control</div><div class="v9-module-desc">Set GSTIN, period and workspace controls before upload.</div><div class="v9-module-badge">Setup</div></div>
-        <div class="v9-module-card"><div class="v9-module-icon">📤</div><div class="v9-module-title">Upload Quality Room</div><div class="v9-module-desc">Review records, taxable value, tax heads and data readiness.</div><div class="v9-module-badge">Validate</div></div>
-        <div class="v9-module-card"><div class="v9-module-icon">🔄</div><div class="v9-module-title">Reco Engine</div><div class="v9-module-desc">Run your existing matching engine with tolerance controls.</div><div class="v9-module-badge">Reconcile</div></div>
-        <div class="v9-module-card"><div class="v9-module-icon">✅</div><div class="v9-module-title">IMS Action Manager</div><div class="v9-module-desc">Filter, edit and finalize invoice-wise actions and remarks.</div><div class="v9-module-badge">Act</div></div>
-        <div class="v9-module-card"><div class="v9-module-icon">⚠️</div><div class="v9-module-title">Risk & ITC Desk</div><div class="v9-module-desc">Focus on critical mismatch and ITC recovery risk items.</div><div class="v9-module-badge">Review</div></div>
-        <div class="v9-module-card"><div class="v9-module-icon">🧾</div><div class="v9-module-title">Final GST JSON</div><div class="v9-module-desc">Generate portal upload JSON only after final sign-off.</div><div class="v9-module-badge">Export</div></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def v9_json_readiness_panel():
-    ims_json_ok = bool(st.session_state.get("ims_json_data"))
-    action_ok = isinstance(st.session_state.get("action_df", pd.DataFrame()), pd.DataFrame) and not st.session_state.get("action_df", pd.DataFrame()).empty
-    final_ok = bool(st.session_state.get("final_json_bytes", b""))
-    st.markdown(f"""
-    <div class="v9-readiness">
-        <div class="v9-readiness-title">🧾 Final JSON Safety Readiness</div>
-        <div class="v9-check-grid">
-            <div class="v9-check"><div class="v9-check-icon">{"✅" if ims_json_ok else "⏳"}</div><div class="v9-check-label">Original IMS JSON<br>{"Loaded" if ims_json_ok else "Pending"}</div></div>
-            <div class="v9-check"><div class="v9-check-icon">{"✅" if action_ok else "⏳"}</div><div class="v9-check-label">Final Actions<br>{"Available" if action_ok else "Pending"}</div></div>
-            <div class="v9-check"><div class="v9-check-icon">🛡️</div><div class="v9-check-label">GST Schema<br>Protected</div></div>
-            <div class="v9-check"><div class="v9-check-icon">{"✅" if final_ok else "⏳"}</div><div class="v9-check-label">Download JSON<br>{"Ready" if final_ok else "After Sign-off"}</div></div>
+def _rx_quality_card(title, df):
+    records = _ui_df_len(df)
+    taxable = _ui_sum(df, "taxable_value")
+    invoice_value = _ui_sum(df, "invoice_value")
+    igst = _ui_sum(df, "igst")
+    cgst = _ui_sum(df, "cgst")
+    sgst = _ui_sum(df, "sgst")
+    cess = _ui_sum(df, "cess")
+    total_tax = igst + cgst + sgst + cess
+    try:
+        score = int(v10_quality_score(df))
+    except Exception:
+        score = 100 if records else 0
+    score_cls = "bad" if score < 60 else "warn" if score < 85 else "good"
+    return f"""
+    <div class="rx-quality">
+        <div class="rx-quality-head">
+            <div><div class="rx-quality-title">{_ui_escape(title)}</div><div class="rx-quality-sub">Records, value and tax quality snapshot</div></div>
+            <div class="rx-score {score_cls}"><div class="rx-score-num">{score}%</div><div class="rx-score-label">QUALITY</div></div>
+        </div>
+        <div class="rx-mini-grid">
+            <div class="rx-mini"><div class="rx-mini-label">Records</div><div class="rx-mini-value">{records:,}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">Taxable</div><div class="rx-mini-value">{_ui_money(taxable)}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">Invoice</div><div class="rx-mini-value">{_ui_money(invoice_value)}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">Total Tax</div><div class="rx-mini-value">{_ui_money(total_tax)}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">IGST</div><div class="rx-mini-value">{_ui_money(igst)}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">CGST</div><div class="rx-mini-value">{_ui_money(cgst)}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">SGST</div><div class="rx-mini-value">{_ui_money(sgst)}</div></div>
+            <div class="rx-mini"><div class="rx-mini-label">CESS</div><div class="rx-mini-value">{_ui_money(cess)}</div></div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
-
-
-def v9_report_cards():
-    st.markdown("""
-    <div class="v9-report-grid">
-        <div class="v9-report-card"><div class="v9-report-title">📊 Complete Workpaper</div><div class="v9-report-desc">Purchase, IMS, reconciliation and action sheets in Excel format.</div></div>
-        <div class="v9-report-card"><div class="v9-report-title">⚠️ Exception Review</div><div class="v9-report-desc">High risk, mismatch and pending cases for management sign-off.</div></div>
-        <div class="v9-report-card"><div class="v9-report-title">🧬 GST JSON Output</div><div class="v9-report-desc">Portal-ready output generated from the protected backend function.</div></div>
-    </div>
-    """, unsafe_allow_html=True)
+    """
 
 
 def v10_quality_dashboard():
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
-
-    def render_quality(title, df, icon):
-        records = _ui_df_len(df)
-        taxable = _ui_sum(df, "taxable_value")
-        invoice_value = _ui_sum(df, "invoice_value")
-        igst = _ui_sum(df, "igst")
-        cgst = _ui_sum(df, "cgst")
-        sgst = _ui_sum(df, "sgst")
-        cess = _ui_sum(df, "cess")
-        total_tax = igst + cgst + sgst + cess
-        score = v10_quality_score(df) if "v10_quality_score" in globals() else (100 if records else 0)
-
-        st.markdown(f"#### {icon} {title}")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Quality", f"{score}%", "ready" if records else "upload pending")
-        c2.metric("Records", f"{records:,}")
-        c3.metric("Taxable", _ui_money(taxable))
-        c4.metric("Invoice Value", _ui_money(invoice_value))
-        c5, c6, c7, c8 = st.columns(4)
-        c5.metric("IGST", _ui_money(igst))
-        c6.metric("CGST", _ui_money(cgst))
-        c7.metric("SGST", _ui_money(sgst))
-        c8.metric("CESS", _ui_money(cess))
-        st.metric("Total Tax", _ui_money(total_tax))
-
-    page_title("Upload Quality Room", "Data health, tax summary and readiness before reconciliation.")
-    left, right = st.columns(2)
-    with left:
-        with st.container(border=True):
-            render_quality("Purchase Register Quality", p, "📚")
-    with right:
-        with st.container(border=True):
-            render_quality("IMS JSON Quality", ims, "🧬")
+    page_title("Upload Quality", "Compact validation view for Purchase Register and IMS data.")
+    st.markdown(f"<div class='rx-quality-grid'>{_rx_quality_card('Purchase Register', p)}{_rx_quality_card('IMS Data', ims)}</div>", unsafe_allow_html=True)
 
 
 def v10_reco_control_room():
     p = st.session_state.get("purchase_df", pd.DataFrame())
     ims = st.session_state.get("ims_df", pd.DataFrame())
     recon = st.session_state.get("recon_df", pd.DataFrame())
+    matched = _ui_recon_count(recon, "Matched")
+    exceptions = max(_ui_df_len(recon) - matched, 0)
     st.markdown(f"""
-    <div class="ui-command">
-        <div class="ui-command-title">🔄 Reconciliation Control Room</div>
-        <div class="ui-command-sub">Use your existing matching rules with controlled tolerance. Start reconciliation only when both datasets are loaded.</div>
-        <div class="ui-action-grid">
-            <div class="ui-action-card"><div class="ui-action-icon">📚</div><div class="ui-action-title">Purchase Register</div><div class="ui-action-desc">{_ui_df_len(p):,} records loaded</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">🧬</div><div class="ui-action-title">IMS JSON</div><div class="ui-action-desc">{_ui_df_len(ims):,} records loaded</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">✅</div><div class="ui-action-title">Matched</div><div class="ui-action-desc">{_ui_recon_count(recon, "Matched"):,} records matched</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">⚠️</div><div class="ui-action-title">Exceptions</div><div class="ui-action-desc">{max(_ui_df_len(recon) - _ui_recon_count(recon, "Matched"), 0):,} records need review</div></div>
+    <div class="rx-command">
+        <div class="rx-command-head"><div><div class="rx-command-title">Reconciliation Control Room</div><div class="rx-command-sub">Review matched and exception buckets before final action.</div></div></div>
+        <div class="rx-action-grid">
+            <div class="rx-action-card"><div class="rx-action-label">Purchase Register</div><div class="rx-action-title">{_ui_df_len(p):,}</div><div class="rx-action-desc">Book-side records</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">IMS Data</div><div class="rx-action-title">{_ui_df_len(ims):,}</div><div class="rx-action-desc">Portal-side records</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Matched</div><div class="rx-action-title">{matched:,}</div><div class="rx-action-desc">Accepted-ready records</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Exceptions</div><div class="rx-action-title">{exceptions:,}</div><div class="rx-action-desc">Needs review</div></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -4985,15 +4513,15 @@ def v10_reco_control_room():
 
 def v10_action_header():
     action = st.session_state.get("action_df", pd.DataFrame())
+    review = _ui_action_count(action, "No Action") + _ui_action_count(action, "Review")
     st.markdown(f"""
-    <div class="ui-command">
-        <div class="ui-command-title">✅ IMS Bulk Action Manager</div>
-        <div class="ui-command-sub">Review, filter and finalize invoice-wise actions. The UI helps you control actions; the backend action-code mapping remains your existing logic.</div>
-        <div class="ui-action-grid">
-            <div class="ui-action-card"><div class="ui-action-icon">✅</div><div class="ui-action-title">Accepted</div><div class="ui-action-desc">{_ui_action_count(action, "Accepted"):,} records</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">📌</div><div class="ui-action-title">Pending</div><div class="ui-action-desc">{_ui_action_count(action, "Pending"):,} records</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">🚫</div><div class="ui-action-title">Rejected</div><div class="ui-action-desc">{_ui_action_count(action, "Rejected"):,} records</div></div>
-            <div class="ui-action-card"><div class="ui-action-icon">🕘</div><div class="ui-action-title">No Action / Review</div><div class="ui-action-desc">{(_ui_action_count(action, "No Action") + _ui_action_count(action, "Review")):,} records</div></div>
+    <div class="rx-command">
+        <div class="rx-command-head"><div><div class="rx-command-title">IMS Bulk Action Manager</div><div class="rx-command-sub">Finalize invoice actions. Action-code mapping remains your original backend logic.</div></div></div>
+        <div class="rx-action-grid">
+            <div class="rx-action-card"><div class="rx-action-label">Accepted</div><div class="rx-action-title">{_ui_action_count(action,'Accepted'):,}</div><div class="rx-action-desc">Clean action bucket</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Pending</div><div class="rx-action-title">{_ui_action_count(action,'Pending'):,}</div><div class="rx-action-desc">Follow-up required</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Rejected</div><div class="rx-action-title">{_ui_action_count(action,'Rejected'):,}</div><div class="rx-action-desc">Blocked or disputed</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Review / No Action</div><div class="rx-action-title">{review:,}</div><div class="rx-action-desc">Manual check pending</div></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -5001,21 +4529,15 @@ def v10_action_header():
 
 def v10_final_json_review_ui():
     action = st.session_state.get("action_df", pd.DataFrame())
-    accepted = _ui_action_count(action, "Accepted")
-    pending = _ui_action_count(action, "Pending")
-    rejected = _ui_action_count(action, "Rejected")
-    no_action = _ui_action_count(action, "No Action")
-    review = _ui_action_count(action, "Review")
-    ims_sections = _ui_safe_unique(st.session_state.get("ims_df", pd.DataFrame()), "ims_sheet")
+    ims_sections = _ui_unique(st.session_state.get("ims_df", pd.DataFrame()), "ims_sheet")
     st.markdown(f"""
-    <div class="v10-json-review">
-        <div class="v10-json-title">🧾 Final GST Upload JSON Review</div>
-        <div class="v10-json-checks">
-            <div class="v10-json-check"><div class="v10-json-check-icon">✅</div><div class="v10-json-check-label">Accepted<br>{accepted:,}</div></div>
-            <div class="v10-json-check"><div class="v10-json-check-icon">🟠</div><div class="v10-json-check-label">Pending<br>{pending:,}</div></div>
-            <div class="v10-json-check"><div class="v10-json-check-icon">🔴</div><div class="v10-json-check-label">Rejected<br>{rejected:,}</div></div>
-            <div class="v10-json-check"><div class="v10-json-check-icon">📦</div><div class="v10-json-check-label">IMS Sections<br>{ims_sections:,}</div></div>
-            <div class="v10-json-check"><div class="v10-json-check-icon">🛡️</div><div class="v10-json-check-label">JSON Engine<br>Untouched</div></div>
+    <div class="rx-command">
+        <div class="rx-command-head"><div><div class="rx-command-title">Final GST Upload JSON Review</div><div class="rx-command-sub">Final review screen only. The GST JSON generation function is not changed.</div></div></div>
+        <div class="rx-action-grid">
+            <div class="rx-action-card"><div class="rx-action-label">Accepted</div><div class="rx-action-title">{_ui_action_count(action,'Accepted'):,}</div><div class="rx-action-desc">Will be carried as accepted action</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Pending</div><div class="rx-action-title">{_ui_action_count(action,'Pending'):,}</div><div class="rx-action-desc">Pending / safe-review bucket</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Rejected</div><div class="rx-action-title">{_ui_action_count(action,'Rejected'):,}</div><div class="rx-action-desc">Rejected bucket</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">IMS Sections</div><div class="rx-action-title">{ims_sections:,}</div><div class="rx-action-desc">B2B, amendment and note sections</div></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -5026,56 +4548,89 @@ def v10_management_summary():
     action = st.session_state.get("action_df", pd.DataFrame())
     total = _ui_df_len(recon)
     matched = _ui_recon_count(recon, "Matched")
-    pending = _ui_action_count(action, "Pending")
-    accepted = _ui_action_count(action, "Accepted")
-    high = 0
-    try:
-        if isinstance(recon, pd.DataFrame) and not recon.empty and "risk_level" in recon.columns:
-            high = int(recon["risk_level"].isin(["High", "Critical"]).sum())
-    except Exception:
-        high = 0
-    text = (
-        f"Total reconciliation rows are {total:,}. Matched rows are {matched:,}. "
-        f"Accepted action rows are {accepted:,}, pending rows are {pending:,}, and high/critical risk rows are {high:,}. "
-        "Please complete review and sign-off before final GST JSON generation."
-        if total else
-        "Upload Purchase Register and IMS JSON, then run reconciliation to generate a management summary."
-    )
+    text = "Upload Purchase Register and IMS JSON, then run reconciliation to generate a management summary."
+    if total:
+        text = f"Reco rows: {total:,}. Matched: {matched:,}. Accepted: {_ui_action_count(action,'Accepted'):,}. Pending: {_ui_action_count(action,'Pending'):,}. Complete action review before final GST JSON generation."
     st.markdown(f"""
-    <div class="v10-management-summary">
-        <div class="v10-management-title">📋 Management Summary</div>
-        <div class="v10-management-text">{text}</div>
+    <div class="rx-command">
+        <div class="rx-command-title">Management Summary</div>
+        <div class="rx-command-sub">{_ui_escape(text)}</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def login_page():
+def v9_saleable_kpis():
+    p = st.session_state.get("purchase_df", pd.DataFrame())
+    ims = st.session_state.get("ims_df", pd.DataFrame())
+    recon = st.session_state.get("recon_df", pd.DataFrame())
+    action = st.session_state.get("action_df", pd.DataFrame())
+    cols = st.columns(4)
+    with cols[0]: metric_card("", "Purchase Tax", _ui_money(_ui_sum(p, "total_tax")), "Books")
+    with cols[1]: metric_card("", "IMS Tax", _ui_money(_ui_sum(ims, "total_tax")), "Portal")
+    with cols[2]: metric_card("", "Matched", f"{_ui_recon_count(recon, 'Matched'):,}", "Reco")
+    with cols[3]: metric_card("", "Pending", f"{_ui_action_count(action, 'Pending'):,}", "Action")
+
+
+def v9_home_modules():
     st.markdown("""
-    <div class="ui-login-bg">
-        <div class="ui-login-card">
-            <div class="ui-login-left">
-                <div class="ui-login-logo">☸</div>
-                <div class="ui-login-title">IMS Recon Pro<br>Compliance Workspace</div>
-                <div class="ui-login-sub">
-                    Premium GST IMS reconciliation interface for upload validation, mismatch review,
-                    action control and final GST upload JSON preparation.
-                </div>
-                <div class="ui-login-feature-grid">
-                    <div class="ui-login-feature"><div class="ui-login-feature-title">🧬 IMS JSON Ready</div><div class="ui-login-feature-text">Built for B2B, amendments, CN and DN sections.</div></div>
-                    <div class="ui-login-feature"><div class="ui-login-feature-title">🛡️ Safe Engine</div><div class="ui-login-feature-text">UI layer is separated from GST calculation logic.</div></div>
-                    <div class="ui-login-feature"><div class="ui-login-feature-title">✅ Action Control</div><div class="ui-login-feature-text">Accepted, Pending, Rejected, Review and No Action handling.</div></div>
-                    <div class="ui-login-feature"><div class="ui-login-feature-title">🇮🇳 India Theme</div><div class="ui-login-feature-text">Designed for Indian GST compliance teams.</div></div>
-                </div>
-            </div>
-            <div class="ui-login-panel">
-                <div class="ui-login-panel-title">Welcome</div>
-                <div class="ui-login-panel-sub">Secure compliance access panel<br>Login to continue your IMS reconciliation workflow.</div>
+    <div class="rx-command">
+        <div class="rx-command-head"><div><div class="rx-command-title">Workspace Modules</div><div class="rx-command-sub">Operational sections for the IMS reconciliation cycle.</div></div></div>
+        <div class="rx-action-grid">
+            <div class="rx-action-card"><div class="rx-action-label">Module</div><div class="rx-action-title">Upload Center</div><div class="rx-action-desc">Purchase Register and IMS source processing.</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Module</div><div class="rx-action-title">Reconciliation</div><div class="rx-action-desc">Match, mismatch and risk review.</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Module</div><div class="rx-action-title">Action Center</div><div class="rx-action-desc">Invoice-wise final action control.</div></div>
+            <div class="rx-action-card"><div class="rx-action-label">Module</div><div class="rx-action-title">Reports & Export</div><div class="rx-action-desc">Excel reports and GST upload JSON.</div></div>
+        </div>
+    </div>
     """, unsafe_allow_html=True)
 
-    username = st.text_input("User ID", placeholder="Enter your User ID")
-    password = st.text_input("Password", type="password", placeholder="Enter password")
 
-    if st.button("🔐 Login Securely", use_container_width=True):
+def v9_json_readiness_panel():
+    ready = bool(st.session_state.get("final_json_bytes"))
+    status = "Ready" if ready else "Not ready"
+    st.markdown(f"""
+    <div class="rx-command">
+        <div class="rx-command-title">Final JSON Safety Status</div>
+        <div class="rx-command-sub">Status: {status}. The portal upload structure is controlled by your existing backend logic.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def v9_report_cards():
+    st.markdown("""
+    <div class="rx-action-grid">
+        <div class="rx-action-card"><div class="rx-action-label">Report</div><div class="rx-action-title">Reco Summary</div><div class="rx-action-desc">Matched and mismatch buckets.</div></div>
+        <div class="rx-action-card"><div class="rx-action-label">Report</div><div class="rx-action-title">Action Sheet</div><div class="rx-action-desc">Accepted, pending and rejected rows.</div></div>
+        <div class="rx-action-card"><div class="rx-action-label">Report</div><div class="rx-action-title">JSON Summary</div><div class="rx-action-desc">Final output validation summary.</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def hero_dashboard():
+    v9_workflow_tracker()
+
+
+def login_page():
+    st.markdown("""
+    <div class="rx-login-wrap">
+        <div class="rx-login-left">
+            <div class="rx-login-brand"><div class="rx-login-logo">IR</div><div><div style="font-size:14px;font-weight:850;color:#101828;">IMS Recon Pro</div><div style="font-size:12px;color:#667085;">GST Reconciliation Workspace</div></div></div>
+            <div class="rx-login-title">Professional IMS reconciliation for GST action control.</div>
+            <div class="rx-login-sub">A clean workspace for upload validation, reconciliation review, invoice action control and final GST JSON preparation.</div>
+            <div class="rx-login-features">
+                <div class="rx-login-feature"><div class="rx-login-feature-title">IMS JSON workflow</div><div class="rx-login-feature-text">B2B, amendments, credit notes and debit notes.</div></div>
+                <div class="rx-login-feature"><div class="rx-login-feature-title">Protected backend</div><div class="rx-login-feature-text">UI skin is separated from formulas and JSON logic.</div></div>
+                <div class="rx-login-feature"><div class="rx-login-feature-title">Action management</div><div class="rx-login-feature-text">Accepted, Pending, Rejected, Review and No Action buckets.</div></div>
+                <div class="rx-login-feature"><div class="rx-login-feature-title">Audit ready</div><div class="rx-login-feature-text">Workspace flow with saved actions and logs.</div></div>
+            </div>
+        </div>
+        <div class="rx-login-panel">
+            <div class="rx-login-panel-title">Sign in</div>
+            <div class="rx-login-panel-sub">Use your IMS Recon Pro credentials to continue.</div>
+    """, unsafe_allow_html=True)
+    username = st.text_input("User ID", placeholder="Admin / User_1 / User_2")
+    password = st.text_input("Password", type="password", placeholder="Enter password")
+    if st.button("Sign in", use_container_width=True, type="primary"):
         user = USER_MASTER.get(username)
         if user and password == user["password"]:
             st.session_state.logged_in = True
@@ -5087,166 +4642,50 @@ def login_page():
             st.rerun()
         else:
             st.error("Invalid User ID or Password. Please check case-sensitive credentials.")
+    st.markdown(f"<div class='rx-login-copy'>© {COPYRIGHT_OWNER} · IMS Recon Pro</div></div></div>", unsafe_allow_html=True)
+
+
+def main():
+    init_db()
+    init_state()
+    inject_css()
+
+    if not st.session_state.logged_in:
+        login_page()
+        return
+
+    top_header()
+    horizontal_nav()
+
+    page = st.session_state.page
+    if page == "Dashboard":
+        dashboard_page()
+    elif page == "Client Setup":
+        client_setup_page()
+    elif page == "Upload Center":
+        upload_center_page()
+    elif page == "IMS Data Viewer":
+        ims_data_viewer_page()
+    elif page == "Reconciliation Workspace":
+        reconciliation_page()
+    elif page == "Action Center":
+        action_center_page()
+    elif page == "Risk Center":
+        risk_center_page()
+    elif page == "Vendor Follow-up":
+        vendor_followup_page()
+    elif page == "Reports & Export":
+        reports_page()
+    elif page == "AI Insight Desk":
+        ai_insight_page()
+    elif page == "Admin Panel":
+        admin_page()
 
     st.markdown(f"""
-                <div class="ui-login-copy">© {COPYRIGHT_OWNER} • IMS Recon Pro • GST IMS Reconciliation Workspace</div>
-            </div>
-        </div>
+    <div style="text-align:center;color:#98a2b3;font-size:12px;margin-top:18px;padding-bottom:8px;">
+        © 2026 IMS Recon Pro · {COPYRIGHT_OWNER} · UI updated only, GST logic unchanged
     </div>
     """, unsafe_allow_html=True)
-
-
-
-
-# =========================================================
-# UI ONLY OVERRIDE PACK — PRECISION REPLIT-STYLE SKIN V2
-# This block changes only presentation. GST JSON generation,
-# reconciliation formula, IMS/CN/DN parsing and action mapping remain untouched.
-# =========================================================
-
-def _ui_escape(value) -> str:
-    try:
-        from html import escape
-        return escape(str(value if value is not None else ""))
-    except Exception:
-        return str(value if value is not None else "")
-
-
-def inject_css():
-    st.markdown("""
-    <style>
-        :root{--r-ink:#101828;--r-muted:#667085;--r-line:#d9e4f2;--r-blue:#2563eb;--r-green:#138808;--r-orange:#ff9933;--r-red:#dc463f;--r-navy:#071a3d;--r-shadow:0 14px 34px rgba(16,24,40,.10);--r-soft-shadow:0 8px 20px rgba(16,24,40,.07)}
-        html,body,[class*="css"],.stApp{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important}.stApp{background:radial-gradient(circle at 8% 4%,rgba(255,153,51,.18),transparent 24%),radial-gradient(circle at 94% 7%,rgba(37,99,235,.14),transparent 26%),linear-gradient(135deg,#f7fbff 0%,#edf4ff 45%,#f9fbff 100%);color:var(--r-ink)}
-        header[data-testid="stHeader"]{background:rgba(248,251,255,.84)!important;backdrop-filter:blur(18px);border-bottom:1px solid rgba(16,24,40,.08)}div[data-testid="stToolbar"],#MainMenu,footer{visibility:hidden;height:0}.block-container{max-width:1580px;padding-top:.85rem;padding-bottom:2rem}
-        section[data-testid="stSidebar"]{background:linear-gradient(180deg,#071a3d 0%,#08285e 52%,#071a3d 100%)!important;border-right:1px solid rgba(255,255,255,.12)}section[data-testid="stSidebar"] *{color:#eef6ff!important}section[data-testid="stSidebar"] input,section[data-testid="stSidebar"] textarea,section[data-testid="stSidebar"] [data-baseweb="select"] *{color:#101828!important}
-        .main-shell,.panel,.small-card,.metric-card,.v10-management-summary,.v10-json-review,.v9-readiness,.v9-report-card{background:linear-gradient(180deg,#fff,#fbfdff)!important;border:1px solid var(--r-line)!important;border-radius:22px!important;box-shadow:var(--r-soft-shadow)!important}.main-shell{overflow:hidden;margin-bottom:16px}.content-pad{padding:24px}.panel,.small-card{padding:18px 20px}.section-title{font-size:26px;line-height:1.18;letter-spacing:-.02em;font-weight:900;color:var(--r-ink);margin:8px 0 4px}.section-sub{font-size:14px;color:var(--r-muted);line-height:1.45;margin-bottom:16px}.panel-title{font-size:18px;font-weight:900;color:var(--r-ink)}
-        .rp-shell{border-radius:28px;overflow:hidden;margin-bottom:16px;background:#fff;border:1px solid var(--r-line);box-shadow:var(--r-shadow)}.rp-topline{min-height:34px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#071a3d;color:#d7e7ff;font-size:12px;font-weight:700}.rp-hero{padding:22px 24px;display:grid;grid-template-columns:minmax(0,1fr) 318px;gap:18px;align-items:stretch;background:radial-gradient(circle at 84% 20%,rgba(255,255,255,.16),transparent 25%),linear-gradient(135deg,#08214f,#0d3679 58%,#103f8c);color:white;position:relative;overflow:hidden}.rp-brand{display:flex;align-items:center;gap:16px;position:relative;z-index:2;min-width:0}.rp-logo{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#0b2d66;background:linear-gradient(135deg,#ff9933 0%,#fff 50%,#138808 100%);box-shadow:0 16px 34px rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.35)}.rp-title{font-size:34px;line-height:1.03;letter-spacing:-.035em;font-weight:950}.rp-sub{font-size:14px;color:#dceaff;margin-top:7px;line-height:1.38;max-width:860px}.rp-path{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.rp-pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:850}.rp-status-panel{position:relative;z-index:2;border-radius:22px;padding:16px;background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px)}.rp-status-title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:900;color:#cfe0fb;margin-bottom:11px}.rp-status-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.12)}.rp-status-row:last-child{border-bottom:none}.rp-status-label{font-size:12px;color:#d7e7ff;font-weight:700}.rp-status-value{font-size:12px;color:#fff;font-weight:900;text-align:right;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rp-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:14px;background:#f7fbff;border-top:1px solid var(--r-line)}.rp-meta-card{min-height:68px;border-radius:18px;background:#fff;border:1px solid #dce7f5;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 18px rgba(16,24,40,.05)}.rp-meta-icon{width:38px;height:38px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:#eef4ff;font-size:18px;flex:0 0 auto}.rp-meta-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--r-muted);font-weight:900}.rp-meta-value{font-size:13px;color:var(--r-ink);font-weight:900;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rp-nav-card{background:#fff;border:1px solid var(--r-line);box-shadow:var(--r-soft-shadow);border-radius:22px;padding:12px;margin:0 0 16px}.rp-nav-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px}.rp-nav-title{font-size:12px;font-weight:950;color:#0b2d66;text-transform:uppercase;letter-spacing:.08em}.rp-nav-note{font-size:12px;color:var(--r-muted);font-weight:700}.rp-page-title{border-radius:24px;padding:18px 20px;margin:4px 0 16px;background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid var(--r-line);box-shadow:var(--r-soft-shadow)}.rp-kicker{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:#0b5fff;font-weight:950;margin-bottom:5px}.rp-heading{font-size:26px;line-height:1.12;letter-spacing:-.03em;font-weight:950;color:var(--r-ink)}.rp-subtitle{font-size:14px;color:var(--r-muted);line-height:1.45;max-width:980px;margin-top:6px}
-        .rp-workflow-card{background:#fff;border:1px solid var(--r-line);border-radius:24px;padding:16px;box-shadow:var(--r-soft-shadow);margin:0 0 16px}.rp-card-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:13px}.rp-card-title{font-size:18px;line-height:1.2;color:var(--r-ink);font-weight:950;letter-spacing:-.02em}.rp-card-sub{font-size:13px;color:var(--r-muted);margin-top:4px}.rp-progress{height:8px;border-radius:999px;background:#eef4ff;overflow:hidden;width:min(360px,100%)}.rp-progress>div{height:100%;border-radius:999px;background:linear-gradient(90deg,#ff9933,#2563eb,#138808)}.rp-step-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:9px}.rp-step{border:1px solid #dce7f5;border-radius:16px;background:#fbfdff;padding:12px;min-height:100px;display:flex;flex-direction:column;justify-content:space-between}.rp-step.done{background:#f1fbf4;border-color:#bfe9c9}.rp-step.active{background:#fff8ef;border-color:#ffc985;box-shadow:inset 0 0 0 1px rgba(255,153,51,.20)}.rp-step-num{width:28px;height:28px;border-radius:10px;background:#eef4ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:950;color:#0b2d66}.rp-step.done .rp-step-num{background:#dff6e5;color:#138808}.rp-step.active .rp-step-num{background:#ffecd1;color:#b85f00}.rp-step-label{font-size:12px;line-height:1.2;font-weight:950;color:#18243b;margin-top:9px}.rp-step-status{font-size:11px;line-height:1.25;color:var(--r-muted);font-weight:800;margin-top:6px}
-        .rp-command{background:linear-gradient(135deg,#071a3d,#0d3679);color:white;border-radius:26px;padding:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 18px 42px rgba(7,26,61,.20);margin:0 0 16px;overflow:hidden;position:relative}.rp-command-title{font-size:24px;line-height:1.16;letter-spacing:-.03em;font-weight:950}.rp-command-sub{font-size:13px;color:#dceaff;line-height:1.45;margin-top:5px;max-width:920px}.rp-command-head{position:relative;z-index:2;margin-bottom:14px}.rp-action-grid{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.rp-action-card{border-radius:18px;padding:15px;min-height:122px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(7px)}.rp-action-icon{width:38px;height:38px;border-radius:14px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px}.rp-action-title{font-size:14px;line-height:1.25;color:#fff;font-weight:950}.rp-action-desc{font-size:12px;line-height:1.38;color:#d7e7ff;margin-top:6px}
-        .metric-card{border-radius:22px!important;padding:17px!important;min-height:118px!important;overflow:hidden;position:relative}.metric-card::after{content:"";position:absolute;right:-38px;bottom:-44px;width:110px;height:110px;border-radius:50%;background:rgba(37,99,235,.07)}.metric-top{display:flex;align-items:center;gap:12px;position:relative;z-index:2}.metric-icon{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:950;color:var(--r-muted)}.metric-value{font-size:25px;line-height:1.12;font-weight:950;color:var(--r-ink);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.metric-delta{font-size:12px;font-weight:850;color:var(--r-green);margin-top:5px}.metric-delta.red{color:var(--r-red)}
-        .rp-quality-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 16px}.rp-quality{background:#fff;border:1px solid var(--r-line);border-radius:24px;padding:16px;box-shadow:var(--r-soft-shadow)}.rp-quality-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}.rp-quality-title{font-size:17px;font-weight:950;color:var(--r-ink);line-height:1.2}.rp-quality-sub{font-size:12px;color:var(--r-muted);margin-top:4px}.rp-score{min-width:68px;height:68px;border-radius:22px;background:linear-gradient(135deg,#138808,#27ae60);color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(19,136,8,.18)}.rp-score.warn{background:linear-gradient(135deg,#ff9933,#f4b14c)}.rp-score.bad{background:linear-gradient(135deg,#dc463f,#ef675b)}.rp-score-num{font-size:22px;font-weight:950;line-height:1}.rp-score-label{font-size:10px;font-weight:900;margin-top:3px}.rp-mini-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.rp-mini{background:#f8fbff;border:1px solid #dce7f5;border-radius:15px;padding:11px;min-height:70px}.rp-mini-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--r-muted);font-weight:950}.rp-mini-value{font-size:16px;color:var(--r-ink);font-weight:950;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rp-help-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 16px}.rp-help{background:#fffdf7;border:1px solid #f1d7a6;border-radius:18px;padding:13px}.rp-help-title{font-size:12px;font-weight:950;color:#7a4b00}.rp-help-text{font-size:12px;line-height:1.38;color:#62420d;margin-top:5px}.v10-json-checks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.v10-json-check{border-radius:16px;background:#f8fbff;border:1px solid #dce7f5;padding:13px;text-align:center;min-height:86px}.v10-json-title,.v10-management-title{font-size:20px;font-weight:950;color:var(--r-ink);margin-bottom:12px}.v10-json-check-label{font-size:12px;line-height:1.35;font-weight:900;color:var(--r-ink)}.v10-management-text{font-size:14px;line-height:1.58;color:#344054}
-        .stTextInput input,.stNumberInput input,.stDateInput input,.stTextArea textarea{border-radius:14px!important;border:1px solid #d0ddec!important;background:#fff!important;box-shadow:none!important;min-height:42px!important}.stSelectbox div[data-baseweb="select"]>div,.stMultiSelect div[data-baseweb="select"]>div{border-radius:14px!important;border-color:#d0ddec!important;min-height:42px!important}.stFileUploader [data-testid="stFileUploaderDropzone"]{border-radius:20px!important;border:1.5px dashed #9fb6d5!important;background:#f8fbff!important;padding:18px!important}.stDownloadButton>button,.stButton>button{border-radius:14px!important;min-height:42px!important;font-weight:850!important;border:1px solid #d0ddec!important;background:linear-gradient(180deg,#fff,#f6f9ff)!important;color:#0b2d66!important;box-shadow:0 6px 14px rgba(16,24,40,.06)!important}.stDownloadButton>button:hover,.stButton>button:hover{transform:translateY(-1px);border-color:#2563eb!important;color:#071a3d!important;background:linear-gradient(180deg,#eef4ff,#dbeafe)!important}div[data-testid="stMetric"]{background:linear-gradient(180deg,#fff,#f8fbff);border:1px solid #dce7f5;border-radius:16px;padding:12px 13px;box-shadow:0 6px 14px rgba(16,24,40,.05);min-height:86px}div[data-testid="stMetricLabel"]{font-weight:900;color:#667085;font-size:12px}div[data-testid="stMetricValue"]{font-weight:950;color:#101828;font-size:22px}div[data-testid="stDataFrame"]{border-radius:18px;overflow:hidden;border:1px solid #dce7f5;box-shadow:0 8px 18px rgba(16,24,40,.06)}.stTabs [data-baseweb="tab-list"]{gap:7px;background:#eef4ff;padding:7px;border-radius:16px;border:1px solid #dce7f5}.stTabs [data-baseweb="tab"]{border-radius:12px;padding:9px 14px;font-weight:850}.stTabs [aria-selected="true"]{background:#fff!important;color:#0b2d66!important;box-shadow:0 6px 14px rgba(16,24,40,.07)}.footer-bar{border-radius:24px!important;background:linear-gradient(90deg,#071a3d,#0b2d66,#071a3d)!important;box-shadow:var(--r-shadow)!important}.foot-main{font-size:14px;font-weight:950}.foot-sub{font-size:12px;color:#d7e7ff}
-        .ui-login-bg{min-height:calc(100vh - 34px);border-radius:28px;padding:28px;background:linear-gradient(135deg,#071a3d,#0b3677);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}.ui-login-card{width:min(980px,100%);display:grid;grid-template-columns:1.08fr .82fr;gap:16px;position:relative;z-index:2}.ui-login-left,.ui-login-panel{border-radius:28px;border:1px solid rgba(255,255,255,.18);box-shadow:0 28px 80px rgba(0,0,0,.24)}.ui-login-left{padding:30px;color:white;background:rgba(255,255,255,.08);backdrop-filter:blur(8px)}.ui-login-panel{background:#fff;padding:30px}.ui-login-logo{width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,#ff9933,#fff,#138808);color:#0b2d66;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:950;margin-bottom:18px}.ui-login-title{font-size:36px;line-height:1.04;letter-spacing:-.035em;font-weight:950}.ui-login-sub{font-size:14px;color:#dceaff;line-height:1.55;margin-top:12px}.ui-login-feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px}.ui-login-feature{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:12px}.ui-login-feature-title{font-size:13px;font-weight:950;color:white}.ui-login-feature-text{font-size:11px;color:#d7e7ff;margin-top:5px;line-height:1.35}.ui-login-panel-title{font-size:28px;font-weight:950;color:#071b4a;text-align:center}.ui-login-panel-sub{font-size:13px;color:#667085;text-align:center;line-height:1.45;margin:7px 0 20px}.ui-login-copy{font-size:11px;color:#667085;text-align:center;border-top:1px solid #e4edf8;margin-top:14px;padding-top:12px;font-weight:800}
-        @media(max-width:1180px){.rp-hero{grid-template-columns:1fr}.rp-meta,.rp-action-grid,.rp-help-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rp-step-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.rp-quality-grid{grid-template-columns:1fr}.ui-login-card{grid-template-columns:1fr}}@media(max-width:760px){.block-container{padding-left:.75rem;padding-right:.75rem}.rp-title{font-size:28px}.rp-hero{padding:20px}.rp-meta,.rp-action-grid,.rp-help-grid,.rp-step-grid,.rp-mini-grid,.v10-json-checks,.ui-login-feature-grid{grid-template-columns:1fr}.rp-card-head{display:block}.rp-progress{margin-top:12px}}
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def top_header():
-    client=_ui_escape(st.session_state.get("client_name") or "Client not selected"); gstin=_ui_escape(st.session_state.get("client_gstin") or "GSTIN pending"); period=_ui_escape(st.session_state.get("return_period") or datetime.today().strftime("%b-%Y")); user=_ui_escape(st.session_state.get("display_name") or st.session_state.get("username") or "User"); role=_ui_escape(st.session_state.get("role") or "Role")
-    purchase_rows=_ui_df_len(st.session_state.get("purchase_df",pd.DataFrame())); ims_rows=_ui_df_len(st.session_state.get("ims_df",pd.DataFrame())); reco_rows=_ui_df_len(st.session_state.get("recon_df",pd.DataFrame())); json_ready="Ready" if st.session_state.get("final_json_bytes",b"") else "Pending"
-    st.markdown(f"""
-    <div class="rp-shell"><div class="rp-topline"><div>IMS Recon Pro • Protected GST Engine • {ENGINE_VERSION}</div><div>{datetime.now().strftime('%d-%b-%Y %I:%M %p')} • {COPYRIGHT_OWNER}</div></div>
-    <div class="rp-hero"><div class="rp-brand"><div class="rp-logo">☸</div><div><div class="rp-title">{APP_TITLE}</div><div class="rp-sub">{APP_TAGLINE}</div><div class="rp-path"><span class="rp-pill">Upload</span><span class="rp-pill">Validate</span><span class="rp-pill">Reconcile</span><span class="rp-pill">Act</span><span class="rp-pill">Review</span><span class="rp-pill">Generate GST JSON</span></div></div></div>
-    <div class="rp-status-panel"><div class="rp-status-title">Live Workspace</div><div class="rp-status-row"><span class="rp-status-label">Purchase Rows</span><span class="rp-status-value">{purchase_rows:,}</span></div><div class="rp-status-row"><span class="rp-status-label">IMS Rows</span><span class="rp-status-value">{ims_rows:,}</span></div><div class="rp-status-row"><span class="rp-status-label">Reco Rows</span><span class="rp-status-value">{reco_rows:,}</span></div><div class="rp-status-row"><span class="rp-status-label">Final JSON</span><span class="rp-status-value">{json_ready}</span></div></div></div>
-    <div class="rp-meta"><div class="rp-meta-card"><div class="rp-meta-icon">🏢</div><div><div class="rp-meta-label">Client</div><div class="rp-meta-value">{client}</div></div></div><div class="rp-meta-card"><div class="rp-meta-icon">🔢</div><div><div class="rp-meta-label">GSTIN</div><div class="rp-meta-value">{gstin}</div></div></div><div class="rp-meta-card"><div class="rp-meta-icon">📅</div><div><div class="rp-meta-label">Period</div><div class="rp-meta-value">{period}</div></div></div><div class="rp-meta-card"><div class="rp-meta-icon">👤</div><div><div class="rp-meta-label">User</div><div class="rp-meta-value">{user} • {role}</div></div></div></div></div>
-    """, unsafe_allow_html=True)
-
-
-def horizontal_nav():
-    nav_items=[("Dashboard","🏠"),("Client Setup","🏢"),("Upload Center","📤"),("IMS Data Viewer","📑"),("Reconciliation Workspace","🔄"),("Action Center","✅"),("Risk Center","⚠️"),("Vendor Follow-up","✉️"),("Reports & Export","🧾"),("AI Insight Desk","🧠"),("Admin Panel","⚙️")]
-    st.markdown("<div class='rp-nav-card'><div class='rp-nav-head'><div class='rp-nav-title'>Workspace Navigation</div><div class='rp-nav-note'>Clean tabs • same backend logic</div></div>", unsafe_allow_html=True)
-    for row_idx,row in enumerate([nav_items[:6],nav_items[6:]]):
-        cols=st.columns(len(row))
-        for i,(label,icon) in enumerate(row):
-            with cols[i]:
-                active=st.session_state.get("page")==label; button_label=f"{icon} {label}" if not active else f"● {icon} {label}"
-                if st.button(button_label,use_container_width=True,key=f"rp_nav_{row_idx}_{i}_{label}"):
-                    st.session_state.page=label; st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def page_title(title:str, subtitle:str=""):
-    st.markdown(f"<div class='rp-page-title'><div class='rp-kicker'>IMS Recon Pro</div><div class='rp-heading'>{_ui_escape(title)}</div><div class='rp-subtitle'>{_ui_escape(subtitle)}</div></div>", unsafe_allow_html=True)
-
-
-def metric_card(icon,label,value,delta="",bg="#ffffff",color="#2563eb",red=False):
-    red_class=" red" if red else ""
-    st.markdown(f"""<div class="metric-card" style="background:linear-gradient(135deg,{bg},#ffffff)!important;"><div class="metric-top"><div class="metric-icon" style="background:{bg}; color:{color};">{_ui_escape(icon)}</div><div style="min-width:0;"><div class="metric-label">{_ui_escape(label)}</div><div class="metric-value">{_ui_escape(value)}</div><div class="metric-delta{red_class}">{_ui_escape(delta)}</div></div></div></div>""", unsafe_allow_html=True)
-
-
-def v9_workflow_tracker():
-    p=st.session_state.get("purchase_df",pd.DataFrame()); ims=st.session_state.get("ims_df",pd.DataFrame()); recon=st.session_state.get("recon_df",pd.DataFrame()); action=st.session_state.get("action_df",pd.DataFrame()); final_json=bool(st.session_state.get("final_json_bytes",b"")); final_summary=st.session_state.get("final_json_summary",pd.DataFrame())
-    steps=[("Client",bool(st.session_state.get("client_name") and st.session_state.get("client_gstin")),st.session_state.get("client_name") or "not selected"),("Upload PR",not p.empty,f"{_ui_df_len(p):,} rows"),("Upload IMS",not ims.empty,f"{_ui_df_len(ims):,} rows"),("Validate",not p.empty or not ims.empty,"quality check" if (not p.empty or not ims.empty) else "pending"),("Reconcile",not recon.empty,f"{_ui_df_len(recon):,} rows"),("Act",not action.empty,f"{_ui_df_len(action):,} actions"),("Review",not final_summary.empty,"sign-off ready" if not final_summary.empty else "pending"),("JSON",final_json,"download ready" if final_json else "pending")]
-    done_count=sum(1 for _,done,_ in steps if done); active_index=min(done_count,len(steps)-1); progress=int((done_count/len(steps))*100); cards=[]
-    for idx,(label,done,status) in enumerate(steps,start=1):
-        cls="done" if done else ("active" if idx-1==active_index else "")
-        cards.append(f"<div class='rp-step {cls}'><div><div class='rp-step-num'>{idx}</div><div class='rp-step-label'>{_ui_escape(label)}</div></div><div class='rp-step-status'>{_ui_escape(status)}</div></div>")
-    st.markdown(f"<div class='rp-workflow-card'><div class='rp-card-head'><div><div class='rp-card-title'>Guided IMS Workflow</div><div class='rp-card-sub'>Upload → Validate → Reconcile → Act → Review → Generate JSON</div></div><div class='rp-progress'><div style='width:{progress}%'></div></div></div><div class='rp-step-grid'>{''.join(cards)}</div></div>", unsafe_allow_html=True)
-
-
-def v10_command_center():
-    p=st.session_state.get("purchase_df",pd.DataFrame()); ims=st.session_state.get("ims_df",pd.DataFrame()); recon=st.session_state.get("recon_df",pd.DataFrame()); action=st.session_state.get("action_df",pd.DataFrame()); matched=_ui_recon_count(recon,"Matched"); total=_ui_df_len(recon); match_pct=f"{(matched/total*100):.1f}%" if total else "0.0%"
-    st.markdown(f"""<div class="rp-command"><div class="rp-command-head"><div class="rp-command-title">Compliance Command Center</div><div class="rp-command-sub">A cleaner control room for IMS upload, reconciliation, action review and final GST JSON sign-off.</div></div><div class="rp-action-grid"><div class="rp-action-card"><div class="rp-action-icon">📚</div><div class="rp-action-title">Purchase Register</div><div class="rp-action-desc">{_ui_df_len(p):,} rows loaded</div></div><div class="rp-action-card"><div class="rp-action-icon">🧬</div><div class="rp-action-title">IMS Portal Data</div><div class="rp-action-desc">{_ui_df_len(ims):,} rows loaded</div></div><div class="rp-action-card"><div class="rp-action-icon">🔄</div><div class="rp-action-title">Reconciliation</div><div class="rp-action-desc">{total:,} rows • {match_pct} matched</div></div><div class="rp-action-card"><div class="rp-action-icon">✅</div><div class="rp-action-title">Action Review</div><div class="rp-action-desc">{_ui_df_len(action):,} action rows ready</div></div></div></div>""", unsafe_allow_html=True)
-    c1,c2,c3,c4=st.columns(4)
-    with c1: metric_card("📚","Purchase Rows",f"{_ui_df_len(p):,}","books data","#fff4e8","#ff8a00")
-    with c2: metric_card("🧬","IMS Rows",f"{_ui_df_len(ims):,}","portal data","#e9f9ed","#138808")
-    with c3: metric_card("🎯","Match Rate",match_pct,"current reco","#eef4ff","#2563eb")
-    with c4: metric_card("🧾","IMS ITC",_ui_money(_ui_sum(ims,"total_tax")),"tax summary","#f2ecff","#6d3bd1")
-    v9_workflow_tracker()
-    c1,c2,c3,c4=st.columns(4)
-    with c1:
-        if st.button("🏢 Client Setup",use_container_width=True,key="rp_cmd_client"): st.session_state.page="Client Setup"; st.rerun()
-    with c2:
-        if st.button("📤 Upload Data",use_container_width=True,key="rp_cmd_upload"): st.session_state.page="Upload Center"; st.rerun()
-    with c3:
-        if st.button("🔄 Run Reco",use_container_width=True,key="rp_cmd_reco"): st.session_state.page="Reconciliation Workspace"; st.rerun()
-    with c4:
-        if st.button("🧾 Final JSON",use_container_width=True,key="rp_cmd_json"): st.session_state.page="Reports & Export"; st.rerun()
-
-
-def v10_help_tooltips():
-    st.markdown("""<div class="rp-help-grid"><div class="rp-help"><div class="rp-help-title">Upload</div><div class="rp-help-text">Load Purchase Register and IMS JSON before reconciliation.</div></div><div class="rp-help"><div class="rp-help-title">Validate</div><div class="rp-help-text">Check records, taxable value, taxes and basic quality.</div></div><div class="rp-help"><div class="rp-help-title">Action</div><div class="rp-help-text">Review Accepted, Pending, Rejected, Review and No Action buckets.</div></div><div class="rp-help"><div class="rp-help-title">JSON</div><div class="rp-help-text">Download final GST upload file from protected backend.</div></div></div>""", unsafe_allow_html=True)
-
-
-def _rp_quality_card(title,df,icon):
-    records=_ui_df_len(df); taxable=_ui_sum(df,"taxable_value"); invoice_value=_ui_sum(df,"invoice_value"); igst=_ui_sum(df,"igst"); cgst=_ui_sum(df,"cgst"); sgst=_ui_sum(df,"sgst"); cess=_ui_sum(df,"cess"); total_tax=igst+cgst+sgst+cess; score=v10_quality_score(df) if "v10_quality_score" in globals() else (100 if records else 0); score_cls="bad" if score<60 else "warn" if score<85 else ""
-    return f"""<div class="rp-quality"><div class="rp-quality-head"><div><div class="rp-quality-title">{_ui_escape(icon)} {_ui_escape(title)}</div><div class="rp-quality-sub">Records, value and tax quality snapshot</div></div><div class="rp-score {score_cls}"><div class="rp-score-num">{score}%</div><div class="rp-score-label">QUALITY</div></div></div><div class="rp-mini-grid"><div class="rp-mini"><div class="rp-mini-label">Records</div><div class="rp-mini-value">{records:,}</div></div><div class="rp-mini"><div class="rp-mini-label">Taxable</div><div class="rp-mini-value">{_ui_money(taxable)}</div></div><div class="rp-mini"><div class="rp-mini-label">Invoice Value</div><div class="rp-mini-value">{_ui_money(invoice_value)}</div></div><div class="rp-mini"><div class="rp-mini-label">Total Tax</div><div class="rp-mini-value">{_ui_money(total_tax)}</div></div><div class="rp-mini"><div class="rp-mini-label">IGST</div><div class="rp-mini-value">{_ui_money(igst)}</div></div><div class="rp-mini"><div class="rp-mini-label">CGST</div><div class="rp-mini-value">{_ui_money(cgst)}</div></div><div class="rp-mini"><div class="rp-mini-label">SGST</div><div class="rp-mini-value">{_ui_money(sgst)}</div></div><div class="rp-mini"><div class="rp-mini-label">CESS</div><div class="rp-mini-value">{_ui_money(cess)}</div></div></div></div>"""
-
-
-def v10_quality_dashboard():
-    p=st.session_state.get("purchase_df",pd.DataFrame()); ims=st.session_state.get("ims_df",pd.DataFrame())
-    page_title("Upload Quality Room","Clean, compact quality summary before reconciliation.")
-    st.markdown(f"<div class='rp-quality-grid'>{_rp_quality_card('Purchase Register',p,'📚')}{_rp_quality_card('IMS JSON',ims,'🧬')}</div>", unsafe_allow_html=True)
-
-
-def v10_reco_control_room():
-    p=st.session_state.get("purchase_df",pd.DataFrame()); ims=st.session_state.get("ims_df",pd.DataFrame()); recon=st.session_state.get("recon_df",pd.DataFrame()); matched=_ui_recon_count(recon,"Matched"); exceptions=max(_ui_df_len(recon)-matched,0)
-    st.markdown(f"""<div class="rp-command"><div class="rp-command-head"><div class="rp-command-title">Reconciliation Control Room</div><div class="rp-command-sub">Same matching engine, sharper visibility. Review matched and exception buckets before actions.</div></div><div class="rp-action-grid"><div class="rp-action-card"><div class="rp-action-icon">📚</div><div class="rp-action-title">Purchase Register</div><div class="rp-action-desc">{_ui_df_len(p):,} records</div></div><div class="rp-action-card"><div class="rp-action-icon">🧬</div><div class="rp-action-title">IMS JSON</div><div class="rp-action-desc">{_ui_df_len(ims):,} records</div></div><div class="rp-action-card"><div class="rp-action-icon">✅</div><div class="rp-action-title">Matched</div><div class="rp-action-desc">{matched:,} records</div></div><div class="rp-action-card"><div class="rp-action-icon">⚠️</div><div class="rp-action-title">Exceptions</div><div class="rp-action-desc">{exceptions:,} records need review</div></div></div></div>""", unsafe_allow_html=True)
-
-
-def v10_action_header():
-    action=st.session_state.get("action_df",pd.DataFrame())
-    st.markdown(f"""<div class="rp-command"><div class="rp-command-head"><div class="rp-command-title">IMS Bulk Action Manager</div><div class="rp-command-sub">Finalize invoice actions. UI improved only; action-code mapping remains original.</div></div><div class="rp-action-grid"><div class="rp-action-card"><div class="rp-action-icon">✅</div><div class="rp-action-title">Accepted</div><div class="rp-action-desc">{_ui_action_count(action,'Accepted'):,} records</div></div><div class="rp-action-card"><div class="rp-action-icon">📌</div><div class="rp-action-title">Pending</div><div class="rp-action-desc">{_ui_action_count(action,'Pending'):,} records</div></div><div class="rp-action-card"><div class="rp-action-icon">🚫</div><div class="rp-action-title">Rejected</div><div class="rp-action-desc">{_ui_action_count(action,'Rejected'):,} records</div></div><div class="rp-action-card"><div class="rp-action-icon">🕘</div><div class="rp-action-title">Review / No Action</div><div class="rp-action-desc">{(_ui_action_count(action,'No Action')+_ui_action_count(action,'Review')):,} records</div></div></div></div>""", unsafe_allow_html=True)
-
-
-def v10_final_json_review_ui():
-    action=st.session_state.get("action_df",pd.DataFrame()); accepted=_ui_action_count(action,"Accepted"); pending=_ui_action_count(action,"Pending"); rejected=_ui_action_count(action,"Rejected"); ims_sections=_ui_safe_unique(st.session_state.get("ims_df",pd.DataFrame()),"ims_sheet")
-    st.markdown(f"""<div class="v10-json-review"><div class="v10-json-title">Final GST Upload JSON Review</div><div class="v10-json-checks"><div class="v10-json-check"><div class="v10-json-check-icon">✅</div><div class="v10-json-check-label">Accepted<br>{accepted:,}</div></div><div class="v10-json-check"><div class="v10-json-check-icon">🟠</div><div class="v10-json-check-label">Pending<br>{pending:,}</div></div><div class="v10-json-check"><div class="v10-json-check-icon">🔴</div><div class="v10-json-check-label">Rejected<br>{rejected:,}</div></div><div class="v10-json-check"><div class="v10-json-check-icon">📦</div><div class="v10-json-check-label">IMS Sections<br>{ims_sections:,}</div></div><div class="v10-json-check"><div class="v10-json-check-icon">🛡️</div><div class="v10-json-check-label">JSON Engine<br>Untouched</div></div></div></div>""", unsafe_allow_html=True)
-
-
-def v10_management_summary():
-    recon=st.session_state.get("recon_df",pd.DataFrame()); action=st.session_state.get("action_df",pd.DataFrame()); total=_ui_df_len(recon); matched=_ui_recon_count(recon,"Matched"); accepted=_ui_action_count(action,"Accepted"); pending=_ui_action_count(action,"Pending"); high=0
-    try:
-        if isinstance(recon,pd.DataFrame) and not recon.empty and "risk_level" in recon.columns: high=int(recon["risk_level"].isin(["High","Critical"]).sum())
-    except Exception: high=0
-    text=f"Reco rows: {total:,}. Matched: {matched:,}. Accepted: {accepted:,}. Pending: {pending:,}. High/Critical risk: {high:,}. Complete action review before final GST JSON generation." if total else "Upload Purchase Register and IMS JSON, then run reconciliation to generate a management summary."
-    st.markdown(f"<div class='v10-management-summary'><div class='v10-management-title'>Management Summary</div><div class='v10-management-text'>{_ui_escape(text)}</div></div>", unsafe_allow_html=True)
-
-
-def login_page():
-    st.markdown("""<div class="ui-login-bg"><div class="ui-login-card"><div class="ui-login-left"><div class="ui-login-logo">☸</div><div class="ui-login-title">IMS Recon Pro</div><div class="ui-login-sub">A premium GST IMS reconciliation workspace for upload validation, action control and final JSON preparation.</div><div class="ui-login-feature-grid"><div class="ui-login-feature"><div class="ui-login-feature-title">IMS JSON Ready</div><div class="ui-login-feature-text">B2B, amendments, CN and DN workflow.</div></div><div class="ui-login-feature"><div class="ui-login-feature-title">Protected Engine</div><div class="ui-login-feature-text">UI skin separated from formulas and JSON logic.</div></div><div class="ui-login-feature"><div class="ui-login-feature-title">Action Control</div><div class="ui-login-feature-text">Accepted, Pending, Rejected and Review buckets.</div></div><div class="ui-login-feature"><div class="ui-login-feature-title">India GST Theme</div><div class="ui-login-feature-text">Designed for Indian compliance teams.</div></div></div></div><div class="ui-login-panel"><div class="ui-login-panel-title">Welcome Back</div><div class="ui-login-panel-sub">Login to continue your IMS reconciliation workflow.</div>""", unsafe_allow_html=True)
-    username=st.text_input("User ID",placeholder="Admin / User_1 / User_2"); password=st.text_input("Password",type="password",placeholder="Enter password")
-    if st.button("Login Securely",use_container_width=True):
-        user=USER_MASTER.get(username)
-        if user and password==user["password"]:
-            st.session_state.logged_in=True; st.session_state.username=username; st.session_state.role=user["role"]; st.session_state.display_name=user["name"]; log_event("Login","Successful login"); load_user_state(); st.rerun()
-        else:
-            st.error("Invalid User ID or Password. Please check case-sensitive credentials.")
-    st.markdown(f"<div class='ui-login-copy'>© {COPYRIGHT_OWNER} • IMS Recon Pro • GST IMS Reconciliation Workspace</div></div></div></div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

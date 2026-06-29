@@ -1,0 +1,24 @@
+
+TROUBLESHOOTING
+
+1) Streamlit shows "Your app is in the oven"
+- Use Python 3.11 or 3.12 in Streamlit Cloud settings.
+- Make sure app.py is the main file path.
+- Do not upload only the ZIP to GitHub. Extract all files.
+
+2) Dashboard is slow
+- Use 20 stocks first.
+- Public data is slower than paid broker APIs.
+- Use auto-refresh at 5 seconds first, then reduce to 1 second if stable.
+
+3) News does not load
+- Google News RSS may be blocked on some networks.
+- Try again later or use a different company name.
+
+4) No stock data
+- Try interval 5m instead of 1m.
+- Try known symbols like SUZLON, YESBANK, RELIANCE.
+
+5) Full market under 1 second
+- This is not realistic without licensed WebSocket market data.
+- This app supports selected watchlists and batch scanning.

@@ -1,323 +1,293 @@
-import json
-import base64
-import re
-import sqlite3
-import pickle
-import logging
-from dataclasses import dataclass
-from datetime import datetime
-from io import BytesIO
-from copy import deepcopy
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
 
+import streamlit as st
 import pandas as pd
 import numpy as np
-import streamlit as st
-from pydantic import BaseModel, Field
-from rapidfuzz import process, fuzz
-from openpyxl import load_workbook
-from openpyxl.styles import PatternFill, Font
+import yfinance as yf
+from datetime import datetime, timedelta
+import plotly.graph_objects as go
+import plotly.express as px
+import urllib.parse
 
-# =========================================================
-# ⚙️ ENTERPRISE CONFIGURATION & LOGGING
-# =========================================================
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("IMS_Recon_Pro")
+st.set_page_config(
+    page_title="No-API Market Assistant",
+    page_icon="📈",
+    layout="wide"
+)
 
-class AppConfig:
-    TITLE = "IMS Recon Pro Enterprise"
-    TAGLINE = "Intelligent GST IMS Reconciliation & Action Management Platform"
-    COPYRIGHT = "@BAJRABHANU"
-    DB_NAME = "ims_recon_pro_enterprise.db"
-    VERSION = "2026.05.09-V11-AI-FUZZY-OOP"
-    
-    IMS_SHEETS = ["B2B", "B2BA", "B2B-DN", "B2B-DNA", "B2B-CN", "B2B-CNA"]
-    ACTION_VALUES = ["No Action", "Accepted", "Rejected", "Pending", "Review"]
-    MONEY_COLS = ["invoice_value", "taxable_value", "igst", "cgst", "sgst", "cess"]
-    TAX_COLS = ["igst", "cgst", "sgst", "cess"]
-    
-    USER_MASTER = {
-        "Admin": {"password": "Admin", "role": "Admin", "name": "System Admin"},
-        "User_1": {"password": "User1", "role": "Analyst", "name": "User-1"},
-    }
+DISCLAIMER = """
+This app is for learning and market screening only. It does not connect to Groww,
+does not place orders, and does not provide guaranteed profit calls. Always verify
+prices in your broker app before trading and use a stop-loss.
+"""
 
-class ReconSettings(BaseModel):
-    """Strict type validation for reconciliation engine settings."""
-    amount_tolerance: float = Field(default=5.0, ge=0.0)
-    date_tolerance: int = Field(default=2, ge=0)
-    include_amendments: bool = Field(default=True)
-    fuzzy_threshold: float = Field(default=85.0, ge=0.0, le=100.0)
+DEFAULT_TICKERS = [
+    "YESBANK.NS", "IDFCFIRSTB.NS", "SUZLON.NS", "SJVN.NS", "UCOBANK.NS",
+    "CENTRALBK.NS", "IOB.NS", "NMDC.NS", "BANKMAHARAS.NS", "IDEA.NS",
+    "IRFC.NS", "PNB.NS", "SAIL.NS", "HUDCO.NS", "GAIL.NS"
+]
 
-# =========================================================
-# 🗄️ DATABASE MANAGER
-# =========================================================
-class DatabaseManager:
-    def __init__(self, db_path: str = AppConfig.DB_NAME):
-        self.db_path = db_path
-        self._init_db()
+def clean_symbol(symbol: str) -> str:
+    symbol = symbol.strip().upper()
+    if not symbol:
+        return ""
+    if "." not in symbol:
+        symbol = symbol + ".NS"
+    return symbol
 
-    def get_conn(self):
-        return sqlite3.connect(self.db_path, check_same_thread=False)
+@st.cache_data(ttl=60)
+def fetch_intraday(symbol: str, period="1d", interval="5m"):
+    data = yf.download(
+        symbol,
+        period=period,
+        interval=interval,
+        progress=False,
+        auto_adjust=False,
+        threads=False
+    )
+    if data is None or data.empty:
+        return pd.DataFrame()
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
+    data = data.dropna().copy()
+    return data
 
-    def _init_db(self):
-        with self.get_conn() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS user_data (
-                    username TEXT NOT NULL,
-                    key TEXT NOT NULL,
-                    value BLOB NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    PRIMARY KEY (username, key)
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS audit_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT,
-                    event_time TEXT,
-                    event_type TEXT,
-                    detail TEXT
-                )
-            """)
+@st.cache_data(ttl=300)
+def fetch_daily(symbol: str, period="3mo"):
+    data = yf.download(
+        symbol,
+        period=period,
+        interval="1d",
+        progress=False,
+        auto_adjust=False,
+        threads=False
+    )
+    if data is None or data.empty:
+        return pd.DataFrame()
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
+    return data.dropna().copy()
 
-    def save_state(self, username: str, key: str, value: Any):
-        blob = pickle.dumps(value)
-        with self.get_conn() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO user_data (username, key, value, updated_at) VALUES (?, ?, ?, ?)",
-                (username, key, blob, datetime.now().isoformat(timespec="seconds")),
-            )
+def calculate_vwap(df: pd.DataFrame) -> pd.Series:
+    typical = (df["High"] + df["Low"] + df["Close"]) / 3
+    volume = df["Volume"].replace(0, np.nan)
+    return (typical * volume).cumsum() / volume.cumsum()
 
-    def load_state(self, username: str, key: str, default: Any = None):
-        try:
-            with self.get_conn() as conn:
-                row = conn.execute("SELECT value FROM user_data WHERE username=? AND key=?", (username, key)).fetchone()
-            return pickle.loads(row[0]) if row else default
-        except Exception as e:
-            logger.error(f"DB Load Error: {e}")
-            return default
+def analyze_symbol(symbol: str, max_price: float, min_volume: int):
+    intraday = fetch_intraday(symbol)
+    daily = fetch_daily(symbol)
 
-    def log_event(self, username: str, event_type: str, detail: str):
-        try:
-            with self.get_conn() as conn:
-                conn.execute(
-                    "INSERT INTO audit_log (username, event_time, event_type, detail) VALUES (?, ?, ?, ?)",
-                    (username, datetime.now().isoformat(timespec="seconds"), event_type, detail),
-                )
-        except Exception as e:
-            logger.error(f"Audit Log Error: {e}")
+    if intraday.empty or len(intraday) < 5:
+        return None, intraday
 
-# =========================================================
-# 🧠 AI RECONCILIATION ENGINE
-# =========================================================
-class ReconciliationEngine:
-    """Enterprise-Grade Reconciliation Engine using Vectorization and Fuzzy Matching."""
-    
-    def __init__(self, purchase_df: pd.DataFrame, ims_df: pd.DataFrame, settings: ReconSettings):
-        self.purchase = purchase_df.copy()
-        self.ims = ims_df.copy()
-        self.settings = settings
-        self.money_cols = AppConfig.MONEY_COLS + ["total_tax"]
+    last = intraday.iloc[-1]
+    current_price = float(last["Close"])
+    day_high = float(intraday["High"].max())
+    day_low = float(intraday["Low"].min())
+    day_volume = int(intraday["Volume"].sum())
 
-    def _preprocess(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        logger.info("Vectorizing and aggregating data...")
-        if not self.settings.include_amendments and "ims_sheet" in self.ims.columns:
-            amendments = ["B2BA", "B2B-DNA", "B2B-CNA", "B2BDN", "B2BCN"]
-            self.ims = self.ims[~self.ims["ims_sheet"].astype(str).str.upper().isin(amendments)]
+    if current_price > max_price or day_volume < min_volume:
+        return None, intraday
 
-        agg_rules = {col: "sum" for col in self.money_cols}
-        agg_rules.update({"supplier_name": "first", "document_type": "first", "document_no": "first", "document_date": "min"})
+    intraday["VWAP"] = calculate_vwap(intraday)
+    vwap = float(intraday["VWAP"].iloc[-1])
 
-        p_agg = self.purchase.groupby(["supplier_gstin", "document_norm"], dropna=False).agg(agg_rules).reset_index()
-        i_agg = self.ims.groupby(["supplier_gstin", "document_norm"], dropna=False).agg(agg_rules).reset_index()
+    avg_vol_20 = None
+    if not daily.empty and "Volume" in daily.columns:
+        avg_vol_20 = float(daily["Volume"].tail(20).mean())
 
-        return p_agg.add_suffix("_purchase"), i_agg.add_suffix("_ims")
+    above_vwap = current_price > vwap
+    near_day_high = current_price >= day_high * 0.995
+    above_open = current_price > float(intraday["Open"].iloc[0])
 
-    def _apply_fuzzy_matching(self, merged: pd.DataFrame) -> pd.DataFrame:
-        logger.info("Running NLP Fuzzy Matching algorithms...")
-        unmatched_ims = merged[merged["_merge"] == "right_only"].copy()
-        unmatched_pur = merged[merged["_merge"] == "left_only"].copy()
+    volume_ok = True
+    if avg_vol_20 and avg_vol_20 > 0:
+        # Intraday volume is partial-day, so this is only a rough liquidity check
+        volume_ok = day_volume >= avg_vol_20 * 0.10
 
-        if unmatched_ims.empty or unmatched_pur.empty:
-            return merged
+    risk_per_share = max(current_price - vwap, current_price * 0.005)
+    stop_loss = current_price - risk_per_share
+    target_1 = current_price + (risk_per_share * 1.5)
+    target_2 = current_price + (risk_per_share * 2)
 
-        pur_invoices = unmatched_pur["document_norm_purchase"].dropna().tolist()
+    score = 0
+    reasons = []
+    if above_vwap:
+        score += 30
+        reasons.append("Price above VWAP")
+    else:
+        reasons.append("Price below VWAP")
 
-        def get_best_match(ims_inv):
-            if pd.isna(ims_inv): return None, 0
-            match = process.extractOne(ims_inv, pur_invoices, scorer=fuzz.WRatio)
-            return (match[0], match[1]) if match else (None, 0)
+    if near_day_high:
+        score += 25
+        reasons.append("Near day high")
+    else:
+        reasons.append("Not near day high")
 
-        unmatched_ims[["fuzzy_match", "fuzzy_score"]] = unmatched_ims["document_norm_ims"].apply(
-            lambda x: pd.Series(get_best_match(x))
+    if above_open:
+        score += 20
+        reasons.append("Above opening price")
+    else:
+        reasons.append("Below opening price")
+
+    if volume_ok:
+        score += 25
+        reasons.append("Liquidity/volume acceptable")
+    else:
+        reasons.append("Weak volume")
+
+    if score >= 75:
+        signal = "BUY WATCH"
+    elif score >= 50:
+        signal = "WAIT / WATCH"
+    else:
+        signal = "AVOID"
+
+    return {
+        "Symbol": symbol,
+        "Price": round(current_price, 2),
+        "VWAP": round(vwap, 2),
+        "Day High": round(day_high, 2),
+        "Day Low": round(day_low, 2),
+        "Volume": day_volume,
+        "Score": score,
+        "Signal": signal,
+        "Stop-loss idea": round(stop_loss, 2),
+        "Target 1 idea": round(target_1, 2),
+        "Target 2 idea": round(target_2, 2),
+        "Reasons": "; ".join(reasons),
+        "Groww Search": f"https://groww.in/search?query={urllib.parse.quote(symbol.replace('.NS',''))}"
+    }, intraday
+
+def quantity_from_risk(capital, max_risk_pct, entry, stop):
+    risk_amount = capital * (max_risk_pct / 100)
+    risk_per_share = max(entry - stop, 0.01)
+    qty = int(risk_amount // risk_per_share)
+    affordable_qty = int(capital // entry)
+    return max(0, min(qty, affordable_qty)), risk_amount
+
+st.title("📈 No-API Market Assistant")
+st.caption("Public-data screening dashboard. No broker login. No order placement.")
+
+st.warning(DISCLAIMER)
+
+with st.sidebar:
+    st.header("Settings")
+    capital = st.number_input("Capital available (₹)", min_value=100.0, value=100.0, step=50.0)
+    max_price = st.number_input("Maximum stock price (₹)", min_value=1.0, value=100.0, step=1.0)
+    min_volume = st.number_input("Minimum intraday volume", min_value=0, value=100000, step=50000)
+    max_risk_pct = st.slider("Max risk per trade (%)", 0.5, 5.0, 1.0, 0.5)
+
+    st.subheader("Symbols")
+    raw = st.text_area(
+        "NSE symbols, one per line",
+        value="\n".join(DEFAULT_TICKERS),
+        height=220,
+        help="Use NSE symbols. Example: YESBANK or YESBANK.NS"
+    )
+    run_scan = st.button("Run scan", type="primary")
+
+symbols = [clean_symbol(x) for x in raw.splitlines() if clean_symbol(x)]
+symbols = list(dict.fromkeys(symbols))
+
+tab1, tab2, tab3, tab4 = st.tabs(["Scanner", "Chart", "Risk Calculator", "How to use"])
+
+if run_scan or "scan_results" not in st.session_state:
+    results = []
+    data_cache = {}
+    progress = st.progress(0)
+    for i, symbol in enumerate(symbols):
+        result, df = analyze_symbol(symbol, max_price=max_price, min_volume=min_volume)
+        if result:
+            results.append(result)
+            data_cache[symbol] = df
+        progress.progress((i + 1) / max(len(symbols), 1))
+    progress.empty()
+    st.session_state["scan_results"] = pd.DataFrame(results)
+    st.session_state["data_cache"] = data_cache
+
+df_results = st.session_state.get("scan_results", pd.DataFrame())
+data_cache = st.session_state.get("data_cache", {})
+
+with tab1:
+    st.subheader("Stocks under your price limit")
+    if df_results.empty:
+        st.info("No matching stocks found. Lower volume filter or add more symbols.")
+    else:
+        df_show = df_results.sort_values(["Score", "Volume"], ascending=[False, False]).reset_index(drop=True)
+        st.dataframe(
+            df_show.drop(columns=["Groww Search"]),
+            use_container_width=True,
+            hide_index=True
         )
-        
-        typo_mask = unmatched_ims["fuzzy_score"] >= self.settings.fuzzy_threshold
-        typo_indices = unmatched_ims[typo_mask].index
-        
-        merged.loc[typo_indices, "mismatch_type"] = "AI Probable Match - Typo"
-        merged.loc[typo_indices, "risk_level"] = "Medium"
-        merged.loc[typo_indices, "recommended_action"] = "Pending"
-        
-        return merged
+        st.caption("Signals are rule-based watch labels, not guaranteed buy/sell calls.")
 
-    def run(self) -> pd.DataFrame:
-        logger.info("Executing High-Speed Reconciliation...")
-        p_agg, i_agg = self._preprocess()
-        
-        p_agg.rename(columns={"supplier_gstin_purchase": "supplier_gstin", "document_norm_purchase": "document_norm"}, inplace=True)
-        i_agg.rename(columns={"supplier_gstin_ims": "supplier_gstin", "document_norm_ims": "document_norm"}, inplace=True)
+        csv = df_show.to_csv(index=False).encode("utf-8")
+        st.download_button("Download scan as CSV", data=csv, file_name="market_scan.csv", mime="text/csv")
 
-        merged = pd.merge(p_agg, i_agg, on=["supplier_gstin", "document_norm"], how="outer", indicator=True)
+with tab2:
+    st.subheader("Chart view")
+    if df_results.empty:
+        st.info("Run the scanner first.")
+    else:
+        selected = st.selectbox("Choose symbol", df_results["Symbol"].tolist())
+        chart_df = data_cache.get(selected)
+        if chart_df is None or chart_df.empty:
+            chart_df = fetch_intraday(selected)
+            if not chart_df.empty:
+                chart_df["VWAP"] = calculate_vwap(chart_df)
 
-        # Vectorized Math
-        for col in self.money_cols:
-            merged[f"{col}_diff"] = merged[f"{col}_purchase"].fillna(0) - merged[f"{col}_ims"].fillna(0)
+        if chart_df is not None and not chart_df.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Candlestick(
+                x=chart_df.index,
+                open=chart_df["Open"],
+                high=chart_df["High"],
+                low=chart_df["Low"],
+                close=chart_df["Close"],
+                name="Price"
+            ))
+            if "VWAP" in chart_df.columns:
+                fig.add_trace(go.Scatter(
+                    x=chart_df.index,
+                    y=chart_df["VWAP"],
+                    mode="lines",
+                    name="VWAP"
+                ))
+            fig.update_layout(height=550, xaxis_rangeslider_visible=False)
+            st.plotly_chart(fig, use_container_width=True)
 
-        merged["date_diff_days"] = (pd.to_datetime(merged["document_date_purchase"], errors="coerce") - 
-                                    pd.to_datetime(merged["document_date_ims"], errors="coerce")).dt.days.abs().fillna(9999)
+            row = df_results[df_results["Symbol"] == selected].iloc[0]
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Signal", row["Signal"])
+            col2.metric("Score", int(row["Score"]))
+            col3.metric("Stop-loss idea", f"₹{row['Stop-loss idea']}")
+            col4.metric("Target 1 idea", f"₹{row['Target 1 idea']}")
 
-        # Vectorized Categorization
-        conditions = [
-            merged["_merge"] == "left_only",
-            merged["_merge"] == "right_only",
-            (merged["taxable_value_diff"].abs() <= self.settings.amount_tolerance) & (merged["date_diff_days"] <= self.settings.date_tolerance),
-            (merged["taxable_value_diff"].abs() <= self.settings.amount_tolerance) & (merged["date_diff_days"] > self.settings.date_tolerance)
-        ]
-        choices = ["Only in Purchase Register", "Only in IMS", "Matched", "Date Mismatch"]
-        merged["mismatch_type"] = np.select(conditions, choices, default="Value / Tax Mismatch")
+            st.link_button("Open Groww search manually", row["Groww Search"])
+        else:
+            st.error("Could not load chart data for this symbol.")
 
-        # Risk Classification
-        merged["risk_level"] = np.where(
-            (merged["mismatch_type"] == "Only in IMS") | (merged["total_tax_diff"].abs() > 50000), "Critical",
-            np.where(merged["mismatch_type"] == "Matched", "Low", "Medium")
-        )
+with tab3:
+    st.subheader("Position size calculator")
+    entry = st.number_input("Entry price (₹)", min_value=0.01, value=50.0, step=0.05)
+    stop = st.number_input("Stop-loss price (₹)", min_value=0.01, value=49.5, step=0.05)
+    qty, risk_amount = quantity_from_risk(capital, max_risk_pct, entry, stop)
+    st.write(f"Maximum risk amount: **₹{risk_amount:.2f}**")
+    st.write(f"Suggested quantity by risk and affordability: **{qty} share(s)**")
+    if qty > 0:
+        st.write(f"Approx order value: **₹{qty * entry:.2f}**")
+        st.write(f"Approx loss if stop-loss hits: **₹{qty * max(entry - stop, 0):.2f}**")
+    else:
+        st.warning("Quantity is 0. Increase capital or reduce entry price/risk gap.")
 
-        merged["recommended_action"] = np.where(merged["mismatch_type"] == "Matched", "Accepted", "Pending")
-
-        merged = self._apply_fuzzy_matching(merged)
-        return merged.reset_index(drop=True)
-
-# =========================================================
-# 🎨 ENTERPRISE UI MANAGER
-# =========================================================
-class UIManager:
-    @staticmethod
-    def inject_premium_css():
-        st.markdown("""
-        <style>
-            :root { --navy:#061a3e; --blue:#2563eb; --saffron:#ff9933; --green:#138808; --bg1:#d8e7f7; --text:#102244; }
-            .stApp { background: linear-gradient(135deg, #dbeafe 0%, #c7d9ef 48%, #e4eef9 100%); color: var(--text); }
-            header[data-testid="stHeader"] { background: rgba(224, 236, 249, 0.88) !important; backdrop-filter: blur(12px); }
-            .block-container { padding-top: 1rem; max-width: 1600px; }
-            
-            /* Premium V10 Cards */
-            .v10-command-center { background: linear-gradient(135deg,#071a3d,#0b3677); color:#ffffff; border-radius:28px; padding:24px; box-shadow:0 20px 48px rgba(7,26,61,0.22); margin: 14px 0 20px 0; }
-            .v10-action-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-            .v10-action-card { background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.16); border-radius:22px; padding:18px; backdrop-filter: blur(4px); }
-            .metric-card { background: #ffffff; border-radius: 24px; padding: 20px 22px; box-shadow: 0 14px 35px rgba(7,26,61,0.12); display:flex; align-items:center; gap:15px; }
-            .metric-value { font-size:33px; font-weight:900; color:#112244; }
-        </style>
-        """, unsafe_allow_html=True)
-
-    @staticmethod
-    def render_metric(icon: str, label: str, value: str, subtext: str = ""):
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div style='font-size:30px;'>{icon}</div>
-            <div>
-                <div style='font-size:13px; font-weight:800; color:#60748f; text-transform:uppercase;'>{label}</div>
-                <div class='metric-value'>{value}</div>
-                <div style='font-size:12px; color:#12a150;'>{subtext}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# =========================================================
-# 🏗️ APP STATE & ROUTING
-# =========================================================
-db = DatabaseManager()
-
-def init_session():
-    defaults = {
-        "logged_in": False, "username": "", "role": "", "page": "Dashboard",
-        "purchase_df": pd.DataFrame(), "ims_df": pd.DataFrame(), 
-        "recon_df": pd.DataFrame(), "action_df": pd.DataFrame()
-    }
-    for k, v in defaults.items():
-        st.session_state.setdefault(k, v)
-
-def login_page():
-    st.markdown("<h2 style='text-align:center;'>Welcome to IMS Recon Pro Enterprise</h2>", unsafe_allow_html=True)
-    with st.container(border=True):
-        user = st.text_input("User ID")
-        pwd = st.text_input("Password", type="password")
-        if st.button("Secure Login", use_container_width=True):
-            if user in AppConfig.USER_MASTER and pwd == AppConfig.USER_MASTER[user]["password"]:
-                st.session_state.update({"logged_in": True, "username": user, "role": AppConfig.USER_MASTER[user]["role"]})
-                db.log_event(user, "Login", "Success")
-                st.rerun()
-            else:
-                st.error("Invalid Credentials")
-
-def dashboard_page():
+with tab4:
+    st.subheader("How this app works")
     st.markdown("""
-    <div class='v10-command-center'>
-        <h2>⚡ IMS Recon Pro Command Center</h2>
-        <p>Enterprise AI-Powered Workflow for GST Compliance.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: UIManager.render_metric("📚", "Purchase Records", f"{len(st.session_state.purchase_df):,}", "Books data")
-    with c2: UIManager.render_metric("📥", "IMS Records", f"{len(st.session_state.ims_df):,}", "Portal data")
-    
-    if not st.session_state.recon_df.empty:
-        matched = len(st.session_state.recon_df[st.session_state.recon_df['mismatch_type'] == 'Matched'])
-        with c3: UIManager.render_metric("✅", "Matched", f"{matched:,}", "AI Verified")
-    
-    st.markdown("### Next Actions")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📤 Upload Data Workspace", use_container_width=True):
-            st.session_state.page = "Upload"
-            st.rerun()
-    with col2:
-        if st.button("🔄 Run AI Reconciliation", use_container_width=True):
-            st.session_state.page = "Recon"
-            st.rerun()
-
-def main():
-    st.set_page_config(page_title=AppConfig.TITLE, layout="wide", initial_sidebar_state="collapsed")
-    UIManager.inject_premium_css()
-    init_session()
-
-    if not st.session_state.logged_in:
-        login_page()
-        return
-
-    st.sidebar.title("Navigation")
-    pages = ["Dashboard", "Upload", "Recon", "Export"]
-    for p in pages:
-        if st.sidebar.button(p, use_container_width=True):
-            st.session_state.page = p
-            st.rerun()
-
-    if st.session_state.page == "Dashboard":
-        dashboard_page()
-    elif st.session_state.page == "Upload":
-        st.write("## 📤 Upload Enterprise Data")
-        # File uploaders logic goes here...
-        st.info("Module ready for Integration.")
-    elif st.session_state.page == "Recon":
-        st.write("## 🔄 AI Reconciliation Engine")
-        if st.button("Execute Vectorized Reconciliation", type="primary"):
-            settings = ReconSettings()
-            engine = ReconciliationEngine(st.session_state.purchase_df, st.session_state.ims_df, settings)
-            st.session_state.recon_df = engine.run()
-            st.success("High-Speed Reconciliation Complete.")
-            st.dataframe(st.session_state.recon_df.head(100))
-
-if __name__ == "__main__":
-    main()
+1. Add NSE symbols in the sidebar.
+2. Set maximum price, for example ₹100.
+3. Click **Run scan**.
+4. Use **BUY WATCH** only as a shortlist, then verify in Groww manually.
+5. Never trade without stop-loss.
+6. Do not use margin or F&O while learning.
+    """)
+    st.info("The app uses public market data through yfinance. Data may be delayed or unavailable. Verify every price in your broker app.")
